@@ -1,0 +1,22 @@
+#!/usr/bin/with-contenv bash
+
+while [ ! -f /tmp/state/99-container-init ]
+do
+  sleep 1
+done
+
+if [ ! -f /tmp/state/10-haraka ]; then
+
+### Check to see if this is a new install, if yes download Wordpress and other pieces...
+if [ ! -f /data/ndex.php ] ; then
+   echo "** [haraka] New Installation Detected"
+   haraka -i /data/
+fi
+
+
+  echo 'Initialization Complete' >/tmp/state/10-haraka
+fi
+
+echo ''
+echo '** Starting Haraka'
+exec haraka -c /data/
