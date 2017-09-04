@@ -1,87 +1,121 @@
 #!/usr/bin/with-contenv bash
 
 ### Set Defaults
-MANUAL_CONFIG=${MANUAL_CONFIG:-"FALSE"}
-HOSTNAME=${HOSTNAME:-"host.example.com"}
-ACCEPT_DOMAINS=${ACCEPT_DOMAINS:-"example.com"}
-LOG_LEVEL=${LOG_LEVEL:-"INFO"}
-UUID_DENY_NUMBER=${UUID_DENY_NUMBER:-"6"}
-STRICT_RFC1869=${STRICT_RFC1869:-"FALSE"}
-MAXIMUM_MESSAGE_SIZE=${MAXIMUM_MESSAGE_SIZE:="26214400"}
-ENABLE_DOVECOT=${ENABLE_DOVECOT:="TRUE"}
-ENABLE_DOVECOT_LDAP=${ENABLE_DOVECOT_LDAP:="TRUE"}
+	MANUAL_CONFIG=${MANUAL_CONFIG:-"FALSE"}
+	ACCEPT_DOMAINS=${ACCEPT_DOMAINS:-"example.com"}
+	EARLY_TALKER_DELAY=${EARLY_TALKER_DELAY:-"1000"}
+	ENABLE_DOVECOT=${ENABLE_DOVECOT:="TRUE"}
+	GROUP=${GROUP:-"haraka"}
+	HOSTNAME=${HOSTNAME:-"host.example.com"}
+	IGNORE_BAD_PLUGINS=${IGNORE_BAD_PLUGINS:-"TRUE"}
+	INACTIVITY_TIME=${INACTIVITY_TIME:-"300"}
+	LISTEN_ADDRESS=${LISTEN_ADDRESS:-"0.0.0.0"}
+	LOG_FILE=${LOG_FILE:-"/var/log/haraka.log"}
+	LOG_LEVEL=${LOG_LEVEL:-"INFO"}
+	MAXIMUM_MESSAGE_SIZE=${MAXIMUM_MESSAGE_SIZE:-"26214400"}
+    MAX_UNRECOGNIZED_COMMANDS{$MAX_UNRECOGNIZED_COMMANDS:-"10"}
+	MAX_RECEIVED_COUNT=${MAX_RECEIVED_COUNT:-"100"}
+	NODES=${NODES:-"0"}
+	OUTBOUND_CONCURRENCY_MAX=${OUTBOUND_CONCURRENCY_MAX:-"100"}
+	REDIS_DB=${REDIS_DB:-"1"}
+	REDIS_HOST=${REDIS_HOST:-"haraka-redis"}
+	REDIS_PORT=${REDIS_PORT:-"6379"}
+	RSPAMD_HOST=${$RSPAMD_HOST:-"rspamd"}
+	RSPAMD_PORT=${$RSPAMD_PORT:-"11333"}
+	SMTP_GREETING=${SMTP_GREETING:-"SMTP Service"}
+	SMTP_PORT=${SMTP_PORT:-"25"}
+	SPAMASSASSIN_HOST=${SPAMASSASSIN_HOST:-"spamassassin"}
+	SPOOL_AFTER=${SPOOL_AFTER:-"-1"}
+	SPOOL_DIR=${SPOOL_DIR:-"/var/spool/haraka"}
+	STRICT_RFC1869=${STRICT_RFC1869:-"FALSE"}
+	USER=${USER:-"haraka"}
+	UUID_DENY_NUMBER=${UUID_DENY_NUMBER:-"6"}
 
-SMTP_PORT=${SMTP_PORT:-"25"}
-LISTEN_ADDRESS=${LISTEN_ADDRESS:-"0.0.0.0"}
-INACTIVITY_TIME=${INACTIVITY_TIME:-"300"}
-NODES=${NODES:-"0"}
-USER=${USER:-"smtp"}
-GROUP=${GROUP:-"smtp"}
-IGNORE_BAD_PLUGINS=${IGNORE_BAD_PLUGINS:-"TRUE"}
-LOG_FILE=${LOG_FILE:-"/var/log/haraka.log"}
-SPOOL_DIR=${SPOOL_DIR:-"/var/spool/haraka"}
-SPOOL_AFTER=${SPOOL_AFTER:-"-1"}
-EARLY_TALKER_DELAY=${EARLY_TALKER_DELAY:-"1000"}
-MAX_RECEIVED_COUNT=${MAX_RECEIVED_COUNT:-"100"}
-OUTBOUND_CONCURRENCY_MAX=${OUTBOUND_CONCURRENCY_MAX:-"100"}
-SMTP_GREETING=${SMTP_GREETING:-"SMTP Service"}
+	PLUGIN_ASN=${PLUGIN_ASN:-"FALSE"}
+	PLUGIN_ATTACHMENT=${PLUGIN_ATTACHMENT:-"FALSE"}
+	PLUGIN_BOUNCE=${PLUGIN_BOUNCE:-"FALSE"}
+	PLUGIN_CLAMD=${PLUGIN_CLAMD:-"FALSE"}
+	PLUGIN_DATA_HEADERS=${PLUGIN_DATA_HEADERS:-"TRUE"}
+	PLUGIN_DATA_URIBL=${PLUGIN_DATA_URIBL:-"FALSE"}
+	PLUGIN_DKIM_SIGN=${PLUGIN_DKIM_SIGN:-"FALSE"}
+	PLUGIN_DNSBL=${PLUGIN_DNSBL:-"TRUE"}
+	PLUGIN_EARLY_TALKER=${PLUGIN_EARLY_TALKER:-"TRUE"}
+	PLUGIN_FCRDNS=${PLUGIN_FCRDNS:-"FALSE"}
+	PLUGIN_GEOIP=${PLUGIN_GEOIP:-"FALSE"}
+	PLUGIN_GREYLIST=${PLUGIN_GREYLIST:-"TRUE"}
+	PLUGIN_HELO_CHECKS=${PLUGIN_HELO_CHECKS:-"TRUE"}
+	PLUGIN_KARMA=${PLUGIN_KARMA:-"TRUE"}
+	PLUGIN_KNOWN_SENDERS=${PLUGIN_KNOWN_SENDERS:-"TRUE"}
+	PLUGIN_LIMIT=${PLUGIN_LIMIT:-"TRUE"}
+	PLUGIN_MAIL_FROM_IS_RESOLVEABLE=${PLUGIN_MAIL_FROM_IS_RESOLVEABLE:-"TRUE"}
+	PLUGIN_P0F=${PLUGIN_P0F:-"TRUE"}
+	PLUGIN_PROCESS_TITLE=${PLUGIN_PROCESS_TITLE:-"TRUE"}
+	PLUGIN_RSPAMD=${PLUGIN_RSPAMD:-"FALSE"}
+	PLUGIN_SPAMASSASSIN=${PLUGIN_SPAMASSASSIN:-"FALSE"}
+	PLUGIN_SPF=${PLUGIN_SPF:-"FALSE"}
+	PLUGIN_TOOBUSY_MAXLAG=${PLUGIN_TOOBUSY_MAXLAG:-"70"}
+	PLUGIN_TOOBUSY=${PLUGIN_TOOBUSY:-"TRUE"}
+	PLUGIN_WATCH=${PLUGIN_WATCH:-"FALSE"}
+
 
 ### Check to see if Data Exists, if not, create new configuration
-if [ ! -f /data/package.json ] ; then
-   echo "** [haraka] New Installation Detected"
-   haraka -i /data/
-fi
+	if [ ! -f /data/package.json ] ; then
+	   echo "** [haraka] New Installation Detected"
+	   haraka -i /data/
+	fi
 
-if [ "$MANUAL_CONFIG" = "TRUE" ] || [ "$MANUAL_CONFIG" = "TRUE" ];  then
-	echo '** [haraka] Manual Configuration Requested, Not updating any configuration files'
-else
-### Set Haraka Options
-  ## Set Hostname
-	echo $HOSTNAME > /data/config/me
-  ## Set Domains to Accept Mail 	
-	rm -rf /data/config/host_list
-	domains=$(echo $ACCEPT_DOMAINS | tr " " "\n")
-		for domain in $domains
-			do
-			    echo $domain >> /data/config/host_list
-			done
-  ## Set Log Level
-	echo LOG$LOG_LEVEL > /data/config/loglevel 
-  ## Define how long the UUID should be in logging
-	echo $UUID_DENY_NUMBER > /data/config/deny_includes_uuid
-	if [ "$STRICT_RFC1869" = "TRUE" ] || [ "$STRICT_RFC1869" = "true" ];  then
-		echo '1' > /data/config/strict_rfc1869
+	if [ "$MANUAL_CONFIG" = "TRUE" ] || [ "$MANUAL_CONFIG" = "TRUE" ];  then
+		echo '** [haraka] Manual Configuration Requested, Not updating any configuration files'
 	else
-		echo '0' > /data/config/strict_rfc1869
-	fi
-  ## Set Timestamps in Logs
-	rm -rf /data/config/log_timestamps
-	if [ "$LOG_TIMESTAMP" = "TRUE" ] || [ "$LOG_TIMESTAMP" = "true" ]; then
-	    echo '1' > /data/config/log_timestamps
-	fi
-  ## Set Maximuim Message Size
-	echo $MAXIMUM_MESSAGE_SIZE > /data/config/databytes
-  ## Set Early Talker Delay
-    echo $EARLY_TALKER_DELAY > /data/config/early_talker_delay
-  ## Set Max Received Count
-    echo $MAX_RECEIVED_COUNT > /data/config/max_received_count 
-  ## Set Max Concurrency for Outbound SMTP
-    echo $OUTBOUND_CONCURRENCY_MAX > /data/config/outbound.concurrency_max
-  ## Set Greeting
-    echo $SMTP_GREETING > /data/config/smtpgreeting
-  ## Set SMTP Options
-  if [ "$IGNORE_BAD_PLUGINS" = "TRUE" ] || [ "$IGNORE_BAD_PLUGINS" = "true" ]; then
-  	LOG_TIMESTAMP=1
-  else
-  	LOG_TIMESTAMP=0
-  fi
+	### Set Haraka Options
+	  ## Set Hostname
+		echo $HOSTNAME > /data/config/me
+	  ## Set Domains to Accept Mail 	
+		rm -rf /data/config/host_list
+		domains=$(echo $ACCEPT_DOMAINS | tr " " "\n")
+			for domain in $domains
+				do
+				    echo $domain >> /data/config/host_list
+				done
+	  ## Set Log Level
+		echo LOG$LOG_LEVEL > /data/config/loglevel 
+	  ## Define how long the UUID should be in logging
+		echo $UUID_DENY_NUMBER > /data/config/deny_includes_uuid
+		if [ "$STRICT_RFC1869" = "TRUE" ] || [ "$STRICT_RFC1869" = "true" ];  then
+			echo '1' > /data/config/strict_rfc1869
+		else
+			echo '0' > /data/config/strict_rfc1869
+		fi
+	  ## Set Timestamps in Logs
+		rm -rf /data/config/log_timestamps
+		if [ "$LOG_TIMESTAMP" = "TRUE" ] || [ "$LOG_TIMESTAMP" = "true" ]; then
+		    echo '1' > /data/config/log_timestamps
+		fi
+	  ## Set Maximuim Message Size
+		echo $MAXIMUM_MESSAGE_SIZE > /data/config/databytes
+	  ## Set Early Talker Delay
+	    echo $EARLY_TALKER_DELAY > /data/config/early_talker_delay
+	  ## Set Max Received Count
+	    echo $MAX_RECEIVED_COUNT > /data/config/max_received_count 
+	  ## Set Max Unrecognized Commands
+	    echo $MAX_UNRECOGNIZED_COMMANDS > /data/config/max_unrecognized_commands 
+	  ## Set Max Concurrency for Outbound SMTP
+	    echo $OUTBOUND_CONCURRENCY_MAX > /data/config/outbound.concurrency_max
+	  ## Set Greeting
+	    echo $SMTP_GREETING > /data/config/smtpgreeting
+	  ## Set SMTP Options
+	  if [ "$IGNORE_BAD_PLUGINS" = "TRUE" ] || [ "$IGNORE_BAD_PLUGINS" = "true" ]; then
+	  	LOG_TIMESTAMP=1
+	  else
+	  	LOG_TIMESTAMP=0
+	  fi
 
     cat <<EOF > /data/config/smtp.ini
 listen=$LISTEN_ADDRESS
 ;public_ip=N.N.N.N
 inactivity_timeout=$INACTIVITY_TIMEOUT
 user=$USER
-group=GROUP
+group=$GROUP
 ignore_bad_plugins=0
 nodes=$NODES
 daemonize=false
@@ -92,96 +126,264 @@ spool_after=$SPOOL_AFTER
 force_shutdown_timeout=30
 EOF
 
+cat <<EOF > /data/config/redis.ini
+[redis]
+host = $REDIS_HOST
+port = $REDIS_PORT
+db = $REDIS_DB
+EOF
 
-### Dovecot Configuration
-	function setDovecotConf {
-		KEY="$1"
-		VALUE="$2"
-		FILE="$3"
-		echo "Setting conf: $KEY=$VALUE in ($FILE)"
-		sed -i "s#^\s*$KEY\s*=.*\$#$KEY=$VALUE#g" $FILE
-	}
+### Plugin Configuration
+	 ## ASN
+	  if [ "$PLUGIN_ASN" = "TRUE" ] || [ "$PLUGIN_ASN" = "true" ];  then
+		sed -i -e "/asn/c\asn" /data/config/plugins
+		if [ ! -f /data/config/asn.ini ] ; then
+		   cp -R /assets/haraka/config/asn.ini /data/config/
+		fi
+		sed -i -e "/dbdir=/usr/local/share/GeoIP/c\dbdir=/usr/local/share/GeoIP" /data/config/asn.ini
+		if [ ! -d /data/geoip ] ; then
+		    mkdir -p /data/geoip
+			echo '** [haraka] Downloading Initial GeoIP Database'
+			maxmind-geolite-mirror
+		fi
+	  else
+	  	sed -i -e "/asn/c\#asn" /data/config/plugins
+	  fi
+	 ## Attachment
+	  if [ "$PLUGIN_ATTACHMENT" = "TRUE" ] || [ "$PLUGIN_ATTACHMENT" = "true" ];  then
+		sed -i -e "/attachment/c\attachment" /data/config/plugins
+		if [ ! -f /data/config/attachmment.ini ] ; then
+		   cp -R /assets/haraka/config/attachment* /data/config/
+		fi
+	  else
+	  	sed -i -e "/attachment/c\#attachment" /data/config/plugins
+	  fi
+	 ## Bounce
+	  if [ "$PLUGIN_BOUNCE" = "TRUE" ] || [ "$PLUGIN_BOUNCE" = "true" ];  then
+		sed -i -e "/bounce/c\bounce" /data/config/plugins
+		if [ ! -f /data/config/bounce.ini ] ; then
+		   cp -R /assets/haraka/config/bounce.ini /data/config/bounce.ini
+		fi
+	  else
+	  	sed -i -e "/bounce/c\#bounce" /data/config/plugins
+	  fi
+	 ## Clam Antivirus
+	  if [ "$PLUGIN_CLAMD" = "TRUE" ] || [ "$PLUGIN_CLAMD" = "true" ];  then
+		sed -i -e "/clamd/c\clamd" /data/config/plugins
+		if [ ! -f /data/config/clamd.ini ] ; then
+		   cp -R /assets/haraka/config/clamd.ini /data/config/clamd.ini
+		fi
+	    sed -i -e "/clamd_socket=/c\spamd_socket=$CLAMD_HOST" /data/config/spamassassin.ini
+	  else
+	  	sed -i -e "/clamd/c\#clamd" /data/config/plugins
+	  fi
+	 ## Data Headers
+	  if [ "$PLUGIN_DATA_HEADERS" = "TRUE" ] || [ "$PLUGIN_DATA_HEADERS" = "true" ];  then
+		sed -i -e "/data.headers/c\data.headers" /data/config/plugins
+		if [ ! -f /data/config/data.headers.ini ] ; then
+		   cp -R /assets/haraka/config/data.headers.ini /data/config/data.headers.ini
+		fi
+	  else
+	  	sed -i -e "/data.headers/c\#data.headers" /data/config/plugins
+	  fi
+	 ## Data URI Blacklist
+	  if [ "$PLUGIN_DATA_URIBL" = "TRUE" ] || [ "$PLUGIN_DATA_URIBL" = "true" ];  then
+		sed -i -e "/data.uribl/c\data.uribl" /data/config/plugins
+		if [ ! -f /data/config/data.uribl.ini ] ; then
+		   cp -R /assets/haraka/config/data.uribl* /data/config/
+		fi
+	  else
+	  	sed -i -e "/data.uribl/c\#data.uribl" /data/config/plugins
+	  fi
+	 ## DNS Blacklist Checks
+	  if [ "$PLUGIN_DNSBL" = "TRUE" ] || [ "$PLUGIN_DNSBL" = "true" ];  then
+		sed -i -e "/dnsbl/c\dnsbl" /data/config/plugins
+		if [ ! -f /data/config/dnsbl.ini ] ; then
+		   cp -R /assets/haraka/config/dnsbl* /data/config/
+		fi
+	  else
+	  	sed -i -e "/dnsbl/c\#dnsbl" /data/config/plugins
+	  fi
+	 ## Early Talker
+	  if [ "$PLUGIN_EARLY_TALKER" = "TRUE" ] || [ "$PLUGIN_EARLY_TALKER" = "true" ];  then
+		sed -i -e "/early_talker/c\early_talker" /data/config/plugins
+		if [ ! -f /data/config/early_talker.ini ] ; then
+		   cp -R /assets/haraka/config/early_talker.ini /data/config/early_talker.ini
+		fi
+	  else
+	  	sed -i -e "/early_talker/c\#early_talker" /data/config/plugins
+	  fi
+	 ## Forward Confirmed Reverse DNS
+	  if [ "$PLUGIN_FCRDNS" = "TRUE" ] || [ "$PLUGIN_FCRDNS" = "true" ];  then
+		sed -i -e "/fcrdns/c\fcrdns" /data/config/plugins
+		if [ ! -f /data/config/fcrdns.ini ] ; then
+		   cp -R /assets/haraka/config/fcrdns.ini /data/config/
+		fi
+	  else
+	  	sed -i -e "/fcrdns/c\#fcrdns" /data/config/plugins
+	  fi
+	 ## GeoIP Lookup
+	  if [ "$PLUGIN_GEOIP" = "TRUE" ] || [ "$PLUGIN_GEOIP" = "true" ];  then
+		sed -i -e "/geoip/c\geoip" /data/config/plugins
+		if [ ! -f /data/config/geoip.ini ] ; then
+		   cp -R /assets/haraka/config/geoip.ini /data/config/
+		fi
+		sed -i -e "/dbdir=/usr/local/share/GeoIP/c\dbdir=/usr/local/share/GeoIP" /data/config/geoip.ini
+		if [ ! -d /data/geoip ] ; then
+		    mkdir -p /data/geoip
+			echo '** [haraka] Downloading Initial GeoIP Database'
+			maxmind-geolite-mirror
+		fi
+	  else
+	  	sed -i -e "/geoip/c\#geoip" /data/config/plugins
+	  fi
+	 ## Greylist
+	  if [ "$PLUGIN_GREYLIST" = "TRUE" ] || [ "$PLUGIN_GREYLIST" = "true" ];  then
+		sed -i -e "/greylist/c\greylist" /data/config/plugins
+		if [ ! -f /data/config/greylist.ini ] ; then
+		   cp -R /assets/haraka/config/greylist.ini /data/config/greylist.ini
+		fi
+	    sed -i -e "/db = /c\db = 11" /data/config/greylist.ini
+	    sed -i -e "/host = /c\host = $REDIS_HOST" /data/config/greylist.ini
+		sed -i -e "/port = /c\port = $REDIS_PORT" /data/config/greylist.ini
+	  else
+	  	sed -i -e "/greylist/c\#greylist" /data/config/plugins
+	  fi
+	 ## HELO Checks
+	  if [ "$PLUGIN_HELO_CHECKS" = "TRUE" ] || [ "$PLUGIN_HELO_CHECKS" = "true" ];  then
+		sed -i -e "/helo.checks/c\helo.checks" /data/config/plugins
+		if [ ! -f /data/config/helo.checks.ini ] ; then
+		   cp -R /assets/haraka/config/helo.checks.ini /data/config/helo.checks.ini
+		fi
+	  else
+	  	sed -i -e "/helo.checks/c\#helo.checks" /data/config/plugins
+	  fi
+	 ## Karma
+	  if [ "$PLUGIN_KARMA" = "TRUE" ] || [ "$PLUGIN_KARMA" = "true" ];  then
+		sed -i -e "/karma/c\karma" /data/config/plugins
+		if [ ! -f /data/config/karma.ini ] ; then
+		   cp -R /assets/haraka/config/karma.ini /data/config/karma.ini
+		fi
+	    sed -i -e "/db     =/c\db   = 1" /data/config/karma.ini
+	    sed -i -e "/host   =/c\host   = $REDIS_HOST" /data/config/karma.ini
+		sed -i -e "/port   =/c\port   = $REDIS_PORT" /data/config/karma.ini
+	  else
+	  	sed -i -e "/karma/c\#karma" /data/config/plugins
+	  fi
+	 ## Known Senders
+	  if [ "$PLUGIN_KNOWN_SENDERS" = "TRUE" ] || [ "$PLUGIN_KNOWN_SENDERS" = "true" ];  then
+		sed -i -e "/known-senders/c\known-senders" /data/config/plugins
+		if [ ! -f /data/config/known-senders.ini ] ; then
+		   cp -R /assets/haraka/config/known-senders.ini /data/config/known-senders.ini
+		fi
+	    sed -i -e "/db     =/c\db     = 4" /data/config/known-senders.ini
+	    sed -i -e "/host   =/c\host   = $REDIS_HOST" /data/config/known-senders.ini
+		sed -i -e "/port   =/c\host   = $REDIS_PORT" /data/config/known-senders.ini
+	  else
+	  	sed -i -e "/known-senders/c\#known-senders" /data/config/plugins
+	  fi
+	 ## Limit
+	  if [ "$PLUGIN_LIMIT" = "TRUE" ] || [ "$PLUGIN_LIMIT" = "true" ];  then
+		sed -i -e "/limit/c\limit" /data/config/plugins
+		if [ ! -f /data/config/limit.ini ] ; then
+		   cp -R /assets/haraka/config/limit.ini /data/config/limit.ini
+		fi
+	    sed -i -e "/db=/c\db=4" /data/config/limit.ini
+	    sed -i -e "/host=/c\host=$REDIS_HOST" /data/config/limit.ini
+		sed -i -e "/port=/c\port=$REDIS_PORT" /data/config/limit.ini
+	  else
+	  	sed -i -e "/limit/c\#limit" /data/config/plugins
+	  fi
+	 ## Mail FROM is resolvable
+	  if [ "$PLUGIN_MAIL_FROM_IS_RESOLVABLE" = "TRUE" ] || [ "$PLUGIN_MAIL_FROM_IS_RESOLVABLE" = "true" ];  then
+		sed -i -e "/mail_from.is_resolvable/c\mail_from.is_resolvable" /data/config/plugins
+		if [ ! -f /data/config/mail_from.is_resolvable.ini ] ; then
+		   cp -R /assets/haraka/config/mail_from.is_resolvable.ini /data/config/mail_from.is_resolvable.ini
+		fi
+	  else
+	  	sed -i -e "/mail_from.is_resolvable/c\#mail_from.is_resolvable" /data/config/plugins
+	  fi
+	 ## p0f
+	  if [ "$PLUGIN_P0F" = "TRUE" ] || [ "$PLUGIN_P0F" = "true" ];  then
+		sed -i -e "/connect.p0f/c\connect.p0f" /data/config/plugins
+		if [ ! -f /data/config/connect-p0f.ini ] ; then
+		   cp -R /assets/haraka/config/connect-p0f.ini /data/config/connect-p0f.ini
+		fi
+	    sed -i -e "/db     =/c\db     = 4" /data/config/known-senders.ini
+	    sed -i -e "/host   =/c\host   = $REDIS_HOST" /data/config/known-senders.ini
+		sed -i -e "/port   =/c\host   = $REDIS_PORT" /data/config/known-senders.ini
+	  else
+	  	sed -i -e "/connect.p0f/c\#connect.p0f" /data/config/plugins
+	    s6-svc -d /var/run/s6/services/05-p0f
+	  fi
+	 ## Process Title
+	  if [ "$PLUGIN_PROCESS_TITLE" = "TRUE" ] || [ "$PLUGIN_PROCESS_TITLE" = "true" ];  then
+		sed -i -e "/process_title/c\process_title" /data/config/plugins
+	  else
+		sed -i -e "/process_title/c\#process_title" /data/config/plugins  	
+	  fi
+	 ## RSpamD
+	  if [ "$PLUGIN_rspamd" = "TRUE" ] || [ "$PLUGIN_rspamd" = "true" ];  then
+		sed -i -e "/rspamd/c\rspamd" /data/config/plugins
+		if [ ! -f /data/config/rspamd.ini ] ; then
+		   cp -R /assets/haraka/config/rspamd.ini /data/config/rspamd.ini
+		fi
+	    sed -i -e "/host = /c\host = $RSPAMD_HOST" /data/config/rspamd.ini
+	    sed -i -e "/port = /c\port = $RSPAMD_PORT" /data/config/rspamd.ini
+	  else
+	  	sed -i -e "/rspamd/c\#rspamd" /data/config/plugins
+	  fi
+	 ## SpamAssassin
+	  if [ "$PLUGIN_SPAMASSASSIN" = "TRUE" ] || [ "$PLUGIN_SPAMASSASSIN" = "true" ];  then
+		sed -i -e "/spamassassin/c\spamassassin" /data/config/plugins
+		if [ ! -f /data/config/spamassassin.ini ] ; then
+		   cp -R /assets/haraka/config/spamassassin.ini /data/config/spamassasin.ini
+		fi
+	    sed -i -e "/spamd_socket=/c\spamd_socket=$SPAMASSASSIN_HOST" /data/config/spamassassin.ini
+	  else
+	  	sed -i -e "/spamassassin/c\#spamassassin" /data/config/plugins
+	  fi
+	 ## Too busy
+	  if [ "$PLUGIN_TOOBUSY" = "TRUE" ] || [ "$PLUGIN_TOOBUSY" = "true" ];  then
+		sed -i -e "/toobusy/c\toobusy" /data/config/plugins
+		echo $PLUGIN_TOOBUSY_MAXLAG > /data/config/toobusy.maxlag 
+	  else
+	  	sed -i -e "/toobusy/c\#toobusy" /data/config/plugins
+	  fi
+	 ## Watch
+	  if [ "$PLUGIN_WATCH" = "TRUE" ] || [ "$PLUGIN_WATCH" = "true" ];  then
+		sed -i -e "/watch/c\watch" /data/config/plugins
+		if [ ! -f /data/config/watch.ini ] ; then
+		   cp -R /assets/haraka/config/watch.ini /data/config/watch.ini
+		fi
+		if [ ! -f /data/config/http.ini ] ; then
+		   cp -R /assets/haraka/config/http.ini /data/config/http.ini
+		fi
+	  else
+	  	sed -i -e "/watch/c\#watch" /data/config/plugins
+	  fi
+	## SPF
+	  if [ "$PLUGIN_SPF" = "TRUE" ] || [ "$PLUGIN_SPF" = "true" ];  then
+		sed -i -e "/spf/c\spf" /data/config/plugins
+		if [ ! -f /data/config/spf.ini ] ; then
+		   cp -R /assets/haraka/config/spf.ini /data/config/spf.ini
+		fi
+	  else
+	  	sed -i -e "/spf/c\#spf" /data/config/plugins
+	  fi
 
-	# Set LDAP conf: base (ex: base=dc=mail, dc=example, dc=org)
-	if [ -n "$LDAP_BASE" ]; then
-		setDovecotConf "base" "$LDAP_BASE" /etc/dovecot/dovecot-ldap.conf.ext
+	## Setup Cron Task for GeoIP
+	  if [ "$PLUGIN_GEOIP" = "TRUE" ] || [ "$PLUGIN_GEOIP" = "true" ] || [ "$PLUGIN_ASN" = "TRUE" ] || [ "$PLUGIN_ASN" = "true" ];  then
+	    echo '0 0 1 * * maxmind-geolite-mirror >/dev/null 2>&1' >>/assets/cron/crontab.txt
+	  fi
+
+	PLUGINS_ENABLED=`set -o posix; set | sort | grep PLUGIN | grep TRUE |sed -e 's/PLUGIN_//g' | sed -e 's/=TRUE//g' | awk -vRS="" -vOFS=', ' '$1=$1' | tr A-Z a-z`
+	echo '** [haraka] Enbaling the following plugins: '$PLUGINS_ENABLED
 	fi
 
-	# Set LDAP conf: user_filter and pass_filter (ex: user_filter = (uid=%n))
-	if [ -n "$LDAP_USER_FIELD" ]; then
-		setDovecotConf "user_filter" "($LDAP_USER_FIELD=%n)" /etc/dovecot/dovecot-ldap.conf.ext
-		setDovecotConf "pass_filter" "($LDAP_USER_FIELD=%n)" /etc/dovecot/dovecot-ldap.conf.ext
-	fi
-
-	# Set LDAP conf: pass_attrs (ex: pass_attrs = uid=user,userPassword=password)
-	if [ -n "$LDAP_USER_FIELD" ]; then
-		setDovecotConf "pass_attrs" "$LDAP_USER_FIELD=user" /etc/dovecot/dovecot-ldap.conf.ext
-	fi
-
-	# Set SSL resource paths
-	if [ -n "$SSL_KEY_PATH" ]; then
-		setDovecotConf "ssl_key" "<$SSL_KEY_PATH" /etc/dovecot/conf.d/10-ssl.conf
-	fi
-	if [ -n "$SSL_CERT_PATH" ]; then
-		setDovecotConf "ssl_cert" "<$SSL_CERT_PATH" /etc/dovecot/conf.d/10-ssl.conf
-	fi
-
-	### Dovecot Generate SSL
-
-	CERT_FOLDER="/etc/ssl/localcerts"
-	CSR_PATH="/tmp/imap.csr.pem"
-
-	if [ -n "$SSL_KEY_PATH" ]; then
-		KEY_PATH=$SSL_KEY_PATH
-	else
-		KEY_PATH="$CERT_FOLDER/imap.key.pem"
-	fi
-
-	if [ -n "$SSL_CERT_PATH" ]; then
-		CERT_PATH=$SSL_CERT_PATH
-	else
-		CERT_PATH="$CERT_FOLDER/imap.cert.pem"
-	fi
-
-	if [ ! -f $CERT_PATH ] || [ ! -f $KEY_PATH ]; then
-		mkdir -p $CERT_FOLDER
-
-	    echo "SSL Key or certificate not found. Generating self-signed certificates"
-	    openssl genrsa -out $KEY_PATH
-	    openssl req -new -key $KEY_PATH -out $CSR_PATH -subj "/CN=imap"
-	    openssl x509 -req -days 3650 -in $CSR_PATH -signkey $KEY_PATH -out $CERT_PATH
-	fi
-
-    ### Dovecot Loglevel
-     sed -i -e 's,#log_path = syslog,log_path = /dev/stderr,' \
-            -e 's,#info_log_path =,info_log_path = /dev/stdout,' \
-            -e 's,#debug_log_path =,debug_log_path = /dev/stdout,' \
-                                     /etc/dovecot/conf.d/10-logging.con
-
-
-	 # Change TLS/SSL dirs in default config and generate default certs
-	 sed -i -e 's,^ssl_cert =.*,ssl_cert = </etc/ssl/dovecot/server.pem,' \
-	           -e 's,^ssl_key =.*,ssl_key = </etc/ssl/dovecot/server.key,' \
-	        /etc/dovecot/conf.d/10-ssl.conf
-	 install -d /etc/ssl/dovecot
-	 openssl req -new -x509 -nodes -days 365 \
-	                -config /etc/dovecot/dovecot-openssl.cnf \
-	                -out /etc/ssl/dovecot/server.pem \
-	                -keyout /etc/ssl/dovecot/server.key
-	 chmod 0600 /etc/ssl/dovecot/server.key
-	 # Tweak TLS/SSL settings to achieve A grade
-	 sed -i -e 's,^#ssl_prefer_server_ciphers =.*,ssl_prefer_server_ciphers = yes,' \
-	           -e 's,^#ssl_cipher_list =.*,ssl_cipher_list = ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA:ECDHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA256:DHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:!DSS,' \
-	           -e 's,^#ssl_protocols =.*,ssl_protocols = !SSLv2 !SSLv3,' \
-	           -e 's,^#ssl_dh_parameters_length =.*,ssl_dh_parameters_length = 2048,' \
-	        /etc/dovecot/conf.d/10-ssl.conf
-	 # Pregenerate Diffie-Hellman parameters (heavy operation)
-	 # to not consume time at container start
-	 mkdir -p /var/lib/dovecot 
-	/usr/libexec/dovecot/ssl-params 
-
-fi
-
-
+touch $LOG_FILE
+chown $USER:$GROUP $LOG_FILE
+mkdir -p $SPOOL_DIR
+chown -R $USER:$GROUP /data $SPOOL_DIR
 mkdir -p /tmp/state
 touch /tmp/state/10-haraka-init

@@ -1,0 +1,14 @@
+#!/usr/bin/with-contenv bash
+
+while [ ! -f /tmp/state/10-haraka-init ]
+do
+  sleep 1
+done
+
+if [ ! -f /tmp/state/05-p0f ]; then
+  echo 'Initialization Complete' >/tmp/state/05-p0f
+fi
+
+echo ''
+echo '** Starting p0f'
+exec /usr/sbin/p0f -f /etc/p0f.fp -u haraka -s /tmp/.p0f_socket 'dst port 25 or dst port 587'

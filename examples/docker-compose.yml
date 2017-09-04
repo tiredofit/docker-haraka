@@ -15,55 +15,21 @@ services:
     - HOSTNAME=mail.example.com
 
     - ACCEPT_DOMAINS=example.com example2.com
-    - DB_TYPE=none
-    #- DB_TYPE=mariadb
-    - DB_HOST=haraka-db
-    - DB_PORT=3306
-    - DB_NAME=haraka
-    - DB_USER=haraka
-    - DB_PASS=userpassword
+    - REDIS_HOST=haraka-redis
 
     networks:
       - proxy-tier
     restart: always
 
-  haraka-db:
-    image: tiredofit/mariadb
-    container_name: haraka-db
-    volumes:
-      - ./db:/var/lib/mysql
+  haraka-redis:
+    image: tiredofit/redis
+    container_name: haraka-redis
     environment:
-      - MYSQL_ROOT_PASSWORD=password
-      - MYSQL_DATABASE=haraka
-      - MYSQL_USER=haraka
-      - MYSQL_PASSWORD=userpassword
-
-      - ZABBIX_HOSTNAME=haraka-db
-
-    networks:
-      - proxy-tier
-    restart: always
-
-  haraka-db-backup:
-    container_name: haraka-db-backup
-    image: tiredofit/mariadb-backup
-    links:
-     - haraka-db
+      - ZABBIX_HOSTNAME=haraka-redis
     volumes:
-      - ./dbbackup:/backup
-    environment:
-      - DB_SERVER=haraka-db
-      - DB_NAME=haraka
-      - DB_USER=haraka
-      - DB_PASSWORD=userpassword
-      - DB_DUMP_FREQ=1440
-      - DB_DUMP_BEGIN=0000
-      - DB_CLEANUP_TIME=8640
-      - COMPRESSION=BZ
+      - ./redis:/data
     networks:
       - proxy-tier
-    restart: always
-
 
 networks:
   proxy-tier:
