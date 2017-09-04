@@ -2,4 +2,6 @@
 
 * Initial Release
 * Alpine Edge
+* Dovecot not fully working yet
+* Minimal Plugin Configuration
 

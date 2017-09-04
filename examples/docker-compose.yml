@@ -7,10 +7,14 @@ services:
     container_name: haraka-app
     volumes:
     - ./data:/data
+    - ./certs:/certs
+    - ./logs:/var/log
     environment:
 
     - ZABBIX_HOSTNAME=haraka-app
+    - HOSTNAME=mail.example.com
 
+    - ACCEPT_DOMAINS=example.com example2.com
     - DB_TYPE=none
     #- DB_TYPE=mariadb
     - DB_HOST=haraka-db

@@ -1,0 +1,187 @@
+#!/usr/bin/with-contenv bash
+
+### Set Defaults
+MANUAL_CONFIG=${MANUAL_CONFIG:-"FALSE"}
+HOSTNAME=${HOSTNAME:-"host.example.com"}
+ACCEPT_DOMAINS=${ACCEPT_DOMAINS:-"example.com"}
+LOG_LEVEL=${LOG_LEVEL:-"INFO"}
+UUID_DENY_NUMBER=${UUID_DENY_NUMBER:-"6"}
+STRICT_RFC1869=${STRICT_RFC1869:-"FALSE"}
+MAXIMUM_MESSAGE_SIZE=${MAXIMUM_MESSAGE_SIZE:="26214400"}
+ENABLE_DOVECOT=${ENABLE_DOVECOT:="TRUE"}
+ENABLE_DOVECOT_LDAP=${ENABLE_DOVECOT_LDAP:="TRUE"}
+
+SMTP_PORT=${SMTP_PORT:-"25"}
+LISTEN_ADDRESS=${LISTEN_ADDRESS:-"0.0.0.0"}
+INACTIVITY_TIME=${INACTIVITY_TIME:-"300"}
+NODES=${NODES:-"0"}
+USER=${USER:-"smtp"}
+GROUP=${GROUP:-"smtp"}
+IGNORE_BAD_PLUGINS=${IGNORE_BAD_PLUGINS:-"TRUE"}
+LOG_FILE=${LOG_FILE:-"/var/log/haraka.log"}
+SPOOL_DIR=${SPOOL_DIR:-"/var/spool/haraka"}
+SPOOL_AFTER=${SPOOL_AFTER:-"-1"}
+EARLY_TALKER_DELAY=${EARLY_TALKER_DELAY:-"1000"}
+MAX_RECEIVED_COUNT=${MAX_RECEIVED_COUNT:-"100"}
+OUTBOUND_CONCURRENCY_MAX=${OUTBOUND_CONCURRENCY_MAX:-"100"}
+SMTP_GREETING=${SMTP_GREETING:-"SMTP Service"}
+
+### Check to see if Data Exists, if not, create new configuration
+if [ ! -f /data/package.json ] ; then
+   echo "** [haraka] New Installation Detected"
+   haraka -i /data/
+fi
+
+if [ "$MANUAL_CONFIG" = "TRUE" ] || [ "$MANUAL_CONFIG" = "TRUE" ];  then
+	echo '** [haraka] Manual Configuration Requested, Not updating any configuration files'
+else
+### Set Haraka Options
+  ## Set Hostname
+	echo $HOSTNAME > /data/config/me
+  ## Set Domains to Accept Mail 	
+	rm -rf /data/config/host_list
+	domains=$(echo $ACCEPT_DOMAINS | tr " " "\n")
+		for domain in $domains
+			do
+			    echo $domain >> /data/config/host_list
+			done
+  ## Set Log Level
+	echo LOG$LOG_LEVEL > /data/config/loglevel 
+  ## Define how long the UUID should be in logging
+	echo $UUID_DENY_NUMBER > /data/config/deny_includes_uuid
+	if [ "$STRICT_RFC1869" = "TRUE" ] || [ "$STRICT_RFC1869" = "true" ];  then
+		echo '1' > /data/config/strict_rfc1869
+	else
+		echo '0' > /data/config/strict_rfc1869
+	fi
+  ## Set Timestamps in Logs
+	rm -rf /data/config/log_timestamps
+	if [ "$LOG_TIMESTAMP" = "TRUE" ] || [ "$LOG_TIMESTAMP" = "true" ]; then
+	    echo '1' > /data/config/log_timestamps
+	fi
+  ## Set Maximuim Message Size
+	echo $MAXIMUM_MESSAGE_SIZE > /data/config/databytes
+  ## Set Early Talker Delay
+    echo $EARLY_TALKER_DELAY > /data/config/early_talker_delay
+  ## Set Max Received Count
+    echo $MAX_RECEIVED_COUNT > /data/config/max_received_count 
+  ## Set Max Concurrency for Outbound SMTP
+    echo $OUTBOUND_CONCURRENCY_MAX > /data/config/outbound.concurrency_max
+  ## Set Greeting
+    echo $SMTP_GREETING > /data/config/smtpgreeting
+  ## Set SMTP Options
+  if [ "$IGNORE_BAD_PLUGINS" = "TRUE" ] || [ "$IGNORE_BAD_PLUGINS" = "true" ]; then
+  	LOG_TIMESTAMP=1
+  else
+  	LOG_TIMESTAMP=0
+  fi
+
+    cat <<EOF > /data/config/smtp.ini
+listen=$LISTEN_ADDRESS
+;public_ip=N.N.N.N
+inactivity_timeout=$INACTIVITY_TIMEOUT
+user=$USER
+group=GROUP
+ignore_bad_plugins=0
+nodes=$NODES
+daemonize=false
+daemon_log_file=$LOG_FILE
+daemon_pid_file=/var/run/haraka.pid
+spool_dir=$SPOOL_DIR
+spool_after=$SPOOL_AFTER
+force_shutdown_timeout=30
+EOF
+
+
+### Dovecot Configuration
+	function setDovecotConf {
+		KEY="$1"
+		VALUE="$2"
+		FILE="$3"
+		echo "Setting conf: $KEY=$VALUE in ($FILE)"
+		sed -i "s#^\s*$KEY\s*=.*\$#$KEY=$VALUE#g" $FILE
+	}
+
+	# Set LDAP conf: base (ex: base=dc=mail, dc=example, dc=org)
+	if [ -n "$LDAP_BASE" ]; then
+		setDovecotConf "base" "$LDAP_BASE" /etc/dovecot/dovecot-ldap.conf.ext
+	fi
+
+	# Set LDAP conf: user_filter and pass_filter (ex: user_filter = (uid=%n))
+	if [ -n "$LDAP_USER_FIELD" ]; then
+		setDovecotConf "user_filter" "($LDAP_USER_FIELD=%n)" /etc/dovecot/dovecot-ldap.conf.ext
+		setDovecotConf "pass_filter" "($LDAP_USER_FIELD=%n)" /etc/dovecot/dovecot-ldap.conf.ext
+	fi
+
+	# Set LDAP conf: pass_attrs (ex: pass_attrs = uid=user,userPassword=password)
+	if [ -n "$LDAP_USER_FIELD" ]; then
+		setDovecotConf "pass_attrs" "$LDAP_USER_FIELD=user" /etc/dovecot/dovecot-ldap.conf.ext
+	fi
+
+	# Set SSL resource paths
+	if [ -n "$SSL_KEY_PATH" ]; then
+		setDovecotConf "ssl_key" "<$SSL_KEY_PATH" /etc/dovecot/conf.d/10-ssl.conf
+	fi
+	if [ -n "$SSL_CERT_PATH" ]; then
+		setDovecotConf "ssl_cert" "<$SSL_CERT_PATH" /etc/dovecot/conf.d/10-ssl.conf
+	fi
+
+	### Dovecot Generate SSL
+
+	CERT_FOLDER="/etc/ssl/localcerts"
+	CSR_PATH="/tmp/imap.csr.pem"
+
+	if [ -n "$SSL_KEY_PATH" ]; then
+		KEY_PATH=$SSL_KEY_PATH
+	else
+		KEY_PATH="$CERT_FOLDER/imap.key.pem"
+	fi
+
+	if [ -n "$SSL_CERT_PATH" ]; then
+		CERT_PATH=$SSL_CERT_PATH
+	else
+		CERT_PATH="$CERT_FOLDER/imap.cert.pem"
+	fi
+
+	if [ ! -f $CERT_PATH ] || [ ! -f $KEY_PATH ]; then
+		mkdir -p $CERT_FOLDER
+
+	    echo "SSL Key or certificate not found. Generating self-signed certificates"
+	    openssl genrsa -out $KEY_PATH
+	    openssl req -new -key $KEY_PATH -out $CSR_PATH -subj "/CN=imap"
+	    openssl x509 -req -days 3650 -in $CSR_PATH -signkey $KEY_PATH -out $CERT_PATH
+	fi
+
+    ### Dovecot Loglevel
+     sed -i -e 's,#log_path = syslog,log_path = /dev/stderr,' \
+            -e 's,#info_log_path =,info_log_path = /dev/stdout,' \
+            -e 's,#debug_log_path =,debug_log_path = /dev/stdout,' \
+                                     /etc/dovecot/conf.d/10-logging.con
+
+
+	 # Change TLS/SSL dirs in default config and generate default certs
+	 sed -i -e 's,^ssl_cert =.*,ssl_cert = </etc/ssl/dovecot/server.pem,' \
+	           -e 's,^ssl_key =.*,ssl_key = </etc/ssl/dovecot/server.key,' \
+	        /etc/dovecot/conf.d/10-ssl.conf
+	 install -d /etc/ssl/dovecot
+	 openssl req -new -x509 -nodes -days 365 \
+	                -config /etc/dovecot/dovecot-openssl.cnf \
+	                -out /etc/ssl/dovecot/server.pem \
+	                -keyout /etc/ssl/dovecot/server.key
+	 chmod 0600 /etc/ssl/dovecot/server.key
+	 # Tweak TLS/SSL settings to achieve A grade
+	 sed -i -e 's,^#ssl_prefer_server_ciphers =.*,ssl_prefer_server_ciphers = yes,' \
+	           -e 's,^#ssl_cipher_list =.*,ssl_cipher_list = ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA:ECDHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA256:DHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:!DSS,' \
+	           -e 's,^#ssl_protocols =.*,ssl_protocols = !SSLv2 !SSLv3,' \
+	           -e 's,^#ssl_dh_parameters_length =.*,ssl_dh_parameters_length = 2048,' \
+	        /etc/dovecot/conf.d/10-ssl.conf
+	 # Pregenerate Diffie-Hellman parameters (heavy operation)
+	 # to not consume time at container start
+	 mkdir -p /var/lib/dovecot 
+	/usr/libexec/dovecot/ssl-params 
+
+fi
+
+
+mkdir -p /tmp/state
+touch /tmp/state/10-haraka-init
