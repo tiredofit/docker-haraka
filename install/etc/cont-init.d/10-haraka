@@ -6,6 +6,7 @@
 	EARLY_TALKER_DELAY=${EARLY_TALKER_DELAY:-"1000"}
 	ENABLE_VMAIL=${ENABLE_VMAIL:="TRUE"}
     ENABLE_LDAP=${ENABLE_LDAP:="FALSE"}
+    ENABLE_LMTP=${ENABLE_LMTP:="FALSE"}
 	GROUP=${GROUP:-"haraka"}
 	HOSTNAME=${HOSTNAME:-"host.example.com"}
 	IGNORE_BAD_PLUGINS=${IGNORE_BAD_PLUGINS:-"TRUE"}
@@ -72,7 +73,83 @@
 		echo '** [haraka] Manual Configuration Requested, Not updating any configuration files'
 	else
     ### Update Config 
-        sed -i '/# Disconnect client if they spew bad SMTP/ i\# MailDir \n#maildir/maildir\n' /data/config/plugins
+	cat <<EOF > /data/config/plugins
+# Plugin ordering often matters, run 'haraka -o -c /path/to/haraka/config'
+# to see the order plugins (and their hooks) will run in.
+# To see a list of all plugins, run 'haraka -l'
+# To see the help docs for a particular plugin, run 'haraka -h plugin.name'
+
+#process_title
+#syslog
+
+# CONNECT
+#toobusy
+#relay
+access
+# connect.p0f
+# geoip
+# asn
+# fcrdns
+dnswl
+dnsbl
+# HELO
+#early_talker
+helo.checks
+#tls
+#auth/flat_file
+#auth/auth_proxy
+#auth/auth_ldap
+#auth/auth_bridge
+#auth/auth_vpopmail.d
+
+#MAIL FROM
+#dkim_verify
+mail_from.is_resolvable
+#spf
+
+# RCPT TO
+rcpt_to.in_host_list
+#qmail-deliverable
+#rcpt_to.access
+#rcpt_to.maxcount
+#rcpt_to.ldap
+#rcpt_to.routes
+
+# DATA
+#prevent_credential_leaks
+#bounce
+data.headers
+#data.uribl
+#attachment
+#avg
+#clamd
+#spamassassin
+#rspamd
+#dkim_sign
+#karma
+#limit
+
+# QUEUE
+#queue/deliver
+#queue/discard
+#queue/lmtp
+#queue/qmail-queue
+#queue/quarantine
+#queue/rabbitmq
+#queue/smtp_bridge
+#queue/smtp_forward
+#queue/smtp_proxy
+
+# MailDir Extension
+#maildir/maildir
+
+# Error Checking
+max_unrecognized_commands
+
+# HTTP
+#graph
+#watch        
+EOF
 
 	### Set Haraka Options
 	  ## Set Hostname
@@ -161,6 +238,13 @@ EOF
     PLUGIN_RCPT_TO_LDAP=TRUE
   fi
 
+### LMTP Configuration
+if [ "$ENABLE_LMTP" = "TRUE" ] || [ "$ENABLE_LMTP" = "true" ];  then
+	sed -i -e "/asn/c\asn" /data/config/plugins
+	if [ ! -f /data/config/lmtp.ini ] ; then
+       cp -R /assets/haraka/config/lmtp.ini /data/config/lmtp.ini
+    fi
+      sed -i -e "/queue"
 
 ### Plugin Configuration
 	 ## ASN
