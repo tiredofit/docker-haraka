@@ -1,12 +1,11 @@
 FROM tiredofit/nodejs:6-latest
-MAINTAINER Dave Conroy <dave at tiredofit dot ca>
+LABEL maintainer="Dave Conroy (dave at tiredofit dot ca)"
 
 ### Disable Features From Base Image
     ENV ENABLE_SMTP=false
 
 ### Install Build Dependencies
-    RUN echo "@testing http://nl.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories && \
-        apk update && \
+    RUN apk update && \
         apk add --virtual haraka-build-dependencies \
             gcc \
             g++ \
@@ -21,7 +20,6 @@ MAINTAINER Dave Conroy <dave at tiredofit dot ca>
             curl \
             libpcap \
             python \
-            rspamd@testing \
             tar \
             wget \
             && \

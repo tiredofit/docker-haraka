@@ -12,13 +12,17 @@
 	IGNORE_BAD_PLUGINS=${IGNORE_BAD_PLUGINS:-"TRUE"}
 	INACTIVITY_TIME=${INACTIVITY_TIME:-"300"}
 	LISTEN_ADDRESS=${LISTEN_ADDRESS:-"0.0.0.0"}
+	LMTP_HOST=${LMTP_HOST:-"lmtp"}
+	LMTP_PORT=${LMTP_PORT:-"24"}
 	LOG_FILE=${LOG_FILE:-"/var/log/haraka.log"}
 	LOG_LEVEL=${LOG_LEVEL:-"INFO"}
 	MAXIMUM_MESSAGE_SIZE=${MAXIMUM_MESSAGE_SIZE:-"26214400"}
     MAX_UNRECOGNIZED_COMMANDS{$MAX_UNRECOGNIZED_COMMANDS:-"10"}
 	MAX_RECEIVED_COUNT=${MAX_RECEIVED_COUNT:-"100"}
 	NODES=${NODES:-"0"}
-	OUTBOUND_CONCURRENCY_MAX=${OUTBOUND_CONCURRENCY_MAX:-"100"}
+	OUTBOUND_CONCURRENCY_MAX=${OUTBOUND_CONCURRENCY_MAX:-"100"}\
+	RABBITMQ_HOST=${RABBITMQ_HOST:-"rabbitmq"}
+	RABBITMQ_POST=${RABBITMQ_PORT:-"5672"}
 	REDIS_DB=${REDIS_DB:-"1"}
 	REDIS_HOST=${REDIS_HOST:-"haraka-redis"}
 	REDIS_PORT=${REDIS_PORT:-"6379"}
@@ -33,7 +37,6 @@
 	USER=${USER:-"haraka"}
 	UUID_DENY_NUMBER=${UUID_DENY_NUMBER:-"6"}
 	VMAIL_DIR=${VMAIL_DIR:="/vmail"}
-
 
 	PLUGIN_ASN=${PLUGIN_ASN:-"FALSE"}
 	PLUGIN_ATTACHMENT=${PLUGIN_ATTACHMENT:-"FALSE"}
@@ -61,6 +64,14 @@
 	PLUGIN_TOOBUSY_MAXLAG=${PLUGIN_TOOBUSY_MAXLAG:-"70"}
 	PLUGIN_TOOBUSY=${PLUGIN_TOOBUSY:-"TRUE"}
 	PLUGIN_WATCH=${PLUGIN_WATCH:-"FALSE"}
+
+    QUEUE_DISCARD=${QUEUE_DISCARD:-"FALSE"}
+    QUEUE_LMTP=${QUEUE_LMTP:-"FALSE"}
+    QUEUE_QMAIL-QUEUE=${QUEUE_QMAIL-QUEUE:-"FALSE"}
+    QUEUE_RABBITMQ=${QUEUE_RABBITMQ:-"FALSE"}
+    QUEUE_SMTP_BRIDGE=${QUEUE_SMTP_BRIDGE:-"FALSE"}
+    QUEUE_SMTP_FORWARD=${QUEUE_SMTP_FORWARD:-"FALSE"}
+    QUEUE_SMTP_PROXY=${QUEUE_SMTP_PROXY:-"FALSE"}
 
 
 ### Check to see if Data Exists, if not, create new configuration
@@ -130,7 +141,6 @@ data.headers
 #limit
 
 # QUEUE
-#queue/deliver
 #queue/discard
 #queue/lmtp
 #queue/qmail-queue
@@ -419,12 +429,9 @@ if [ "$ENABLE_LMTP" = "TRUE" ] || [ "$ENABLE_LMTP" = "true" ];  then
 	 ## p0f
 	  if [ "$PLUGIN_P0F" = "TRUE" ] || [ "$PLUGIN_P0F" = "true" ];  then
 		sed -i -e "/connect.p0f/c\connect.p0f" /data/config/plugins
-		if [ ! -f /data/config/connect-p0f.ini ] ; then
-		   cp -R /assets/haraka/config/connect-p0f.ini /data/config/connect-p0f.ini
+		if [ ! -f /data/config/connect.p0f.ini ] ; then
+		   cp -R /assets/haraka/config/connect.p0f.ini /data/config/connect.p0f.ini
 		fi
-	    sed -i -e "/db     =/c\db     = 4" /data/config/known-senders.ini
-	    sed -i -e "/host   =/c\host   = $REDIS_HOST" /data/config/known-senders.ini
-		sed -i -e "/port   =/c\host   = $REDIS_PORT" /data/config/known-senders.ini
 	  else
 	  	sed -i -e "/connect.p0f/c\#connect.p0f" /data/config/plugins
 	    s6-svc -d /var/run/s6/services/05-p0f
@@ -504,6 +511,85 @@ if [ "$ENABLE_LMTP" = "TRUE" ] || [ "$ENABLE_LMTP" = "true" ];  then
 
 	PLUGINS_ENABLED=`set -o posix; set | sort | grep PLUGIN | grep TRUE |sed -e 's/PLUGIN_//g' | sed -e 's/=TRUE//g' | awk -vRS="" -vOFS=', ' '$1=$1' | tr A-Z a-z`
 	echo '** [haraka] Enbaling the following plugins: '$PLUGINS_ENABLED
+
+### Queue Configuration
+## Discard
+  if [ "$QUEUE_DISCARD" = "TRUE" ] || [ "$QUEUE_LMTP" = "true" ];  then
+	sed -i -e "/queue\/discard/c\/queue\/discard" /data/config/plugins
+	if [ ! -f /data/config/lmtp.ini ] ; then
+       cp -R /assets/haraka/config/lmtp.ini /data/config/lmtp.ini
+    fi
+  else
+	sed -i -e "/queue\/discard/c\#queue\/discard" /data/config/plugins
+  fi  
+## LMTP
+  if [ "$QUEUE_LMTP" = "TRUE" ] || [ "$QUEUE_LMTP" = "true" ];  then
+	sed -i -e "/queue\/lmtp/c\/queue\/lmtp" /data/config/plugins
+	if [ ! -f /data/config/lmtp.ini ] ; then
+       cp -R /assets/haraka/config/lmtp.ini /data/config/lmtp.ini
+    fi
+  else
+	sed -i -e "/queue\/lmtp/c\#queue\/lmtp" /data/config/plugins
+  fi  
+## Qmail
+  if [ "$QUEUE_QMAIL" = "TRUE" ] || [ "$QUEUE_LMTP" = "true" ];  then
+	sed -i -e "/queue\/qmail-queue/c\/queue\/qmail-queue" /data/config/plugins
+	if [ ! -f /data/config/qmail-queue.ini ] ; then
+       cp -R /assets/haraka/config/qmail-queue.ini /data/config/qmail-queue.ini
+    fi
+  else
+	sed -i -e "/queue\/qmail-queue/c\#queue\/qmail-queue" /data/config/plugins
+  fi  
+## Quarantine
+  if [ "$QUEUE_QUARANTINE" = "TRUE" ] || [ "$QUEUE_LMTP" = "true" ];  then
+	sed -i -e "/queue\/quarantine/c\/queue\/quarantine" /data/config/plugins
+	if [ ! -f /data/config/lmtp.ini ] ; then
+       cp -R /assets/haraka/config/lmtp.ini /data/config/lmtp.ini
+    fi
+  else
+	sed -i -e "/queue\/quarantine/c\#queue\/quarantine" /data/config/plugins
+  fi  
+## Quarantine
+  if [ "$QUEUE_RABBITMQ" = "TRUE" ] || [ "$QUEUE_RABBITMQ" = "true" ];  then
+	sed -i -e "/queue\/rabbitmq/c\/queue\/rabbitmq" /data/config/plugins
+	if [ ! -f /data/config/rabbitmq.ini ] ; then
+       cp -R /assets/haraka/config/rabbitmq.ini /data/config/rabbitmq.ini
+    fi
+    sed -i -e "/server_ip = /c\server_ip = $RABBITMQ_HOST" /data/config/rabbitmq.ini
+    sed -i -e "/server_port = /c\server_port = $RABBITMQ_PORT" /data/config/rabbitmq.ini
+  else
+	sed -i -e "/queue\/rabbitmq/c\#queue\/rabbitmq" /data/config/plugins
+  fi  
+## SMTP Bridge
+  if [ "$QUEUE_SMTP_BRIDGE" = "TRUE" ] || [ "$QUEUE_LMTP" = "true" ];  then
+	sed -i -e "/queue\/smtp_bridge/c\/queue\/smtp_bridge" /data/config/plugins
+	if [ ! -f /data/config/smtp_bridge.ini ] ; then
+       cp -R /assets/haraka/config/smtp_bridge.ini /data/config/smtp_bridge.ini
+    fi
+    AUTH_BRIDGE=TRUE
+  else
+	sed -i -e "/queue\/smtp_bridge/c\#queue\/smtp_bridge" /data/config/plugins
+  fi  
+## SMTP Forward
+  if [ "$QUEUE_SMTP_FORWARD" = "TRUE" ] || [ "$QUEUE_LMTP" = "true" ];  then
+	sed -i -e "/queue\/smtp_forward/c\/queue\/smtp_forward" /data/config/plugins
+	if [ ! -f /data/config/smtp_forward.ini ] ; then
+       cp -R /assets/haraka/config/smtp_forward.ini /data/config/smtp_forward.ini
+    fi
+  else
+	sed -i -e "/queue\/smtp_forward/c\#queue\/smtp_forward" /data/config/plugins
+  fi  
+## SMTP Proxy
+  if [ "$QUEUE_SMTP_PROXY" = "TRUE" ] || [ "$QUEUE_LMTP" = "true" ];  then
+	sed -i -e "/queue\/smtp_proxy/c\/queue\/smtp_proxy" /data/config/plugins
+	if [ ! -f /data/config/lmtp.ini ] ; then
+       cp -R /assets/haraka/config/lmtp.ini /data/config/lmtp.ini
+    fi
+  else
+	sed -i -e "/queue\/smtp_proxy/c\#queue\/smtp_proxy" /data/config/plugins
+  fi  
+
+
 	fi
 
 touch $LOG_FILE
