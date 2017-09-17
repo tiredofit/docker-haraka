@@ -5,7 +5,7 @@ LABEL maintainer="Dave Conroy (dave at tiredofit dot ca)"
     ENV ENABLE_SMTP=false
 
 ### Install Build Dependencies
-    RUN apk update && \
+    RUN apk update ; \
         apk add --virtual haraka-build-dependencies \
             gcc \
             g++ \
