@@ -11,7 +11,6 @@ LABEL maintainer="Dave Conroy (dave at tiredofit dot ca)"
             g++ \
             libpcap-dev \
             make \
-            mariadb-dev \
             musl-dev \
             && \
 
@@ -29,12 +28,12 @@ LABEL maintainer="Dave Conroy (dave at tiredofit dot ca)"
         npm -g install \
             Haraka \
             haraka-plugin-geoip \
+            haraka-plugin-ldap \
             haraka-plugin-limit \
             haraka-plugin-p0f \
             iconv \
             maxmind-geolite-mirror \
             mkdirp \
-            mysql \
             toobusy-js \
             && \
 

@@ -18,12 +18,13 @@ fi
 	IGNORE_BAD_PLUGINS=${IGNORE_BAD_PLUGINS:-"TRUE"}
 	INACTIVITY_TIME=${INACTIVITY_TIME:-"300"}
 	LISTEN_ADDRESS=${LISTEN_ADDRESS:-"0.0.0.0"}
+	LDAP_TLS=${LDAP_TLS:-FALSE}
 	LMTP_HOST=${LMTP_HOST:-"lmtp"}
 	LMTP_PORT=${LMTP_PORT:-"24"}
-	LOG_FILE=${LOG_FILE:-"/var/log/haraka.log"}
+	LOG_FILE=${LOG_FILE:-"/var/log/haraka/haraka.log"}
 	LOG_LEVEL=${LOG_LEVEL:-"INFO"}
 	MAXIMUM_MESSAGE_SIZE=${MAXIMUM_MESSAGE_SIZE:-"26214400"}
-    MAX_UNRECOGNIZED_COMMANDS${MAX_UNRECOGNIZED_COMMANDS:-"10"}
+    MAX_UNRECOGNIZED_COMMANDS=${MAX_UNRECOGNIZED_COMMANDS:-"10"}
 	MAX_RECEIVED_COUNT=${MAX_RECEIVED_COUNT:-"100"}
 	NODES=${NODES:-"0"}
 	OUTBOUND_CONCURRENCY_MAX=${OUTBOUND_CONCURRENCY_MAX:-"100"}
@@ -44,6 +45,12 @@ fi
 	UUID_DENY_NUMBER=${UUID_DENY_NUMBER:-"6"}
 	VMAIL_DIR=${VMAIL_DIR:="/vmail"}
 
+    AUTH_BRIDGE=${AUTH_BRIDGE:-false}
+    AUTH_FLAT_FILE=${AUTH_FLAT_FILE:-false}
+    AUTH_LDAP=${AUTH_LDAP:-false}
+    AUTH_PROXY=${AUTH_PROXY:-false}
+    AUTH_VPOPMAILD=${AUTH_VPOPMAILD:-false}
+
 	PLUGIN_ASN=${PLUGIN_ASN:-"FALSE"}
 	PLUGIN_ATTACHMENT=${PLUGIN_ATTACHMENT:-"FALSE"}
 	PLUGIN_BOUNCE=${PLUGIN_BOUNCE:-"FALSE"}
@@ -59,6 +66,7 @@ fi
 	PLUGIN_HELO_CHECKS=${PLUGIN_HELO_CHECKS:-"TRUE"}
 	PLUGIN_KARMA=${PLUGIN_KARMA:-"TRUE"}
 	PLUGIN_KNOWN_SENDERS=${PLUGIN_KNOWN_SENDERS:-"TRUE"}
+	PLUGIN_LDAP=${PLUGIN_LDAP:-"TRUE"}
 	PLUGIN_LIMIT=${PLUGIN_LIMIT:-"TRUE"}
 	PLUGIN_MAIL_FROM_IS_RESOLVABLE=${PLUGIN_MAIL_FROM_IS_RESOLVABLE:-"TRUE"}
 	PLUGIN_P0F=${PLUGIN_P0F:-"TRUE"}
@@ -112,10 +120,10 @@ dnsbl
 # HELO
 #early_talker
 helo.checks
+#ldap
 #tls
 #auth/flat_file
 #auth/auth_proxy
-#auth/auth_ldap
 #auth/auth_bridge
 #auth/auth_vpopmail.d
 
@@ -129,7 +137,6 @@ rcpt_to.in_host_list
 #qmail-deliverable
 #rcpt_to.access
 #rcpt_to.maxcount
-#rcpt_to.ldap
 #rcpt_to.routes
 
 # DATA
@@ -261,6 +268,75 @@ if [ "$ENABLE_LMTP" = "TRUE" ] || [ "$ENABLE_LMTP" = "true" ];  then
        cp -R /assets/haraka/config/lmtp.ini /data/config/lmtp.ini
     fi
       sed -i -e "/queue"
+fi
+
+### Auth Configuration
+    ## Bridge
+	if [ "$AUTH_BRIDGE" = "TRUE" ] || [ "$AUTH_BRIDGE" = "true" ];  then
+  		sed -i -e "/auth\/bridge/c\/auth\/bridge" /data/config/plugins
+		if [ ! -f /data/config/smtp_bridge.ini ] ; then
+       		cp -R /assets/haraka/config/smtp_bridge.ini /data/config/smtp_bridge.ini
+    	fi
+    	QUEUE_BRIDGE=TRUE
+  	else
+	sed -i -e "/auth\/bridge/c\/#auth\/bridge" /data/config/plugins
+  	fi
+
+    ## Flat File
+	if [ "$AUTH_FLAT_FILE" = "TRUE" ] || [ "$AUTH_FLAT_FILE" = "true" ];  then
+  		sed -i -e "/auth\/flat_file/c\/auth\/flat_file" /data/config/plugins
+		if [ ! -f /data/config/auth_flat_file.ini ] ; then
+       		cp -R /assets/haraka/config/auth_flat_file.ini /data/config/auth_flat_file.ini
+    	fi
+  		else
+		sed -i -e "/auth\/flat_file/c\/#auth\/flat_file" /data/config/plugins
+  	fi
+
+	## LDAP (Also does auth, aliases, rcpt_to and authz)
+	if [ "$AUTH_LDAP" = "TRUE" ] || [ "$AUTH_LDAP" = "true" ];  then
+
+	    if [ "$LDAP_TLS" = "TRUE" ] || [ "$LDAP_TLS" = "true" ];  then
+	        LDAP_SCHEME="ldaps://"
+	    	if [! -n $LDAP_PORT ]; then
+	    		LDAP_PORT=636
+	    	fi
+	    else
+	    	LDAP_SCHEME="ldap://"
+	    	if [! -n $LDAP_PORT ]; then
+	    		LDAP_PORT=389
+	    	fi
+	    fi
+		sed -i -e "/ldap/c\ldap" /data/config/plugins
+		if [ ! -f /data/config/ldap.ini ] ; then
+		   cp -R /assets/haraka/config/ldap.ini /data/config/ldap.ini
+		fi
+		    sed -i -e "/server[] = /c\server[] = $LDAP_SCHEME$LDAP_HOST:$LDAP_PORT" /data/config/ldap.ini
+		    sed -i -e "/binddn = /c\binddn = $LDAP_BIND_DN" /data/config/ldap.ini
+		    sed -i -e "/bindpw = /c\bindpw = $LDAP_BIND_PASS" /data/config/ldap.ini
+		    sed -i -e "/basedn = /c\basedn = $LDAP_BASE_DN" /data/config/ldap.ini
+	  	else
+	  		sed -i -e "/ldap/c\#ldap" /data/config/plugins
+	fi
+
+    ## Proxy
+	if [ "$AUTH_PROXY" = "TRUE" ] || [ "$AUTH_PROXY" = "true" ];  then
+		sed -i -e "/auth\/proxy/c\/auth\/proxy" /data/config/plugins
+		if [ ! -f /data/config/auth_proxy.ini ] ; then
+			cp -R /assets/haraka/config/auth_proxy.ini /data/config/auth_proxy.ini
+		fi
+		else
+		sed -i -e "/auth\/proxy/c\/#auth\/proxy" /data/config/plugins
+	fi
+
+    ## Vpopmail
+	if [ "$AUTH_VPOPMAILD" = "TRUE" ] || [ "$AUTH_VPOPMAILD" = "true" ];  then
+		sed -i -e "/auth\/vpopmail.d/c\/auth\/vpopmail.d" /data/config/plugins
+		if [ ! -f /data/config/auth_vpopmaild.ini ] ; then
+		cp -R /assets/haraka/config/auth_vpopmaild.ini /data/config/auth_vpopmaild.ini
+		fi
+	else
+		sed -i -e "/auth\/vpopmail.d/c\/#auth\/vpopmail.d" /data/config/plugins
+	fi
 
 ### Plugin Configuration
 	 ## ASN
@@ -411,6 +487,7 @@ if [ "$ENABLE_LMTP" = "TRUE" ] || [ "$ENABLE_LMTP" = "true" ];  then
 	  else
 	  	sed -i -e "/known-senders/c\#known-senders" /data/config/plugins
 	  fi
+     
 	 ## Limit
 	  if [ "$PLUGIN_LIMIT" = "TRUE" ] || [ "$PLUGIN_LIMIT" = "true" ];  then
 		sed -i -e "/limit/c\limit" /data/config/plugins
@@ -515,91 +592,97 @@ if [ "$ENABLE_LMTP" = "TRUE" ] || [ "$ENABLE_LMTP" = "true" ];  then
 	    echo '0 0 1 * * maxmind-geolite-mirror >/dev/null 2>&1' >>/assets/cron/crontab.txt
 	  fi
 
-	PLUGINS_ENABLED=`set -o posix; set | sort | grep PLUGIN | grep TRUE |sed -e 's/PLUGIN_//g' | sed -e 's/=TRUE//g' | awk -vRS="" -vOFS=', ' '$1=$1' | tr A-Z a-z`
-	echo '** [haraka] Enbaling the following plugins: '$PLUGINS_ENABLED
-
 ### Queue Configuration
-## Discard
-  if [ "$QUEUE_DISCARD" = "TRUE" ] || [ "$QUEUE_LMTP" = "true" ];  then
-	sed -i -e "/queue\/discard/c\/queue\/discard" /data/config/plugins
-	if [ ! -f /data/config/lmtp.ini ] ; then
-       cp -R /assets/haraka/config/lmtp.ini /data/config/lmtp.ini
-    fi
-  else
-	sed -i -e "/queue\/discard/c\#queue\/discard" /data/config/plugins
-  fi  
-## LMTP
-  if [ "$QUEUE_LMTP" = "TRUE" ] || [ "$QUEUE_LMTP" = "true" ];  then
-	sed -i -e "/queue\/lmtp/c\/queue\/lmtp" /data/config/plugins
-	if [ ! -f /data/config/lmtp.ini ] ; then
-       cp -R /assets/haraka/config/lmtp.ini /data/config/lmtp.ini
-    fi
-  else
-	sed -i -e "/queue\/lmtp/c\#queue\/lmtp" /data/config/plugins
-  fi  
-## Qmail
-  if [ "$QUEUE_QMAIL" = "TRUE" ] || [ "$QUEUE_LMTP" = "true" ];  then
-	sed -i -e "/queue\/qmail-queue/c\/queue\/qmail-queue" /data/config/plugins
-	if [ ! -f /data/config/qmail-queue.ini ] ; then
-       cp -R /assets/haraka/config/qmail-queue.ini /data/config/qmail-queue.ini
-    fi
-  else
-	sed -i -e "/queue\/qmail-queue/c\#queue\/qmail-queue" /data/config/plugins
-  fi  
-## Quarantine
-  if [ "$QUEUE_QUARANTINE" = "TRUE" ] || [ "$QUEUE_LMTP" = "true" ];  then
-	sed -i -e "/queue\/quarantine/c\/queue\/quarantine" /data/config/plugins
-	if [ ! -f /data/config/lmtp.ini ] ; then
-       cp -R /assets/haraka/config/lmtp.ini /data/config/lmtp.ini
-    fi
-  else
-	sed -i -e "/queue\/quarantine/c\#queue\/quarantine" /data/config/plugins
-  fi  
-## Quarantine
-  if [ "$QUEUE_RABBITMQ" = "TRUE" ] || [ "$QUEUE_RABBITMQ" = "true" ];  then
-	sed -i -e "/queue\/rabbitmq/c\/queue\/rabbitmq" /data/config/plugins
-	if [ ! -f /data/config/rabbitmq.ini ] ; then
-       cp -R /assets/haraka/config/rabbitmq.ini /data/config/rabbitmq.ini
-    fi
-    sed -i -e "/server_ip = /c\server_ip = $RABBITMQ_HOST" /data/config/rabbitmq.ini
-    sed -i -e "/server_port = /c\server_port = $RABBITMQ_PORT" /data/config/rabbitmq.ini
-  else
-	sed -i -e "/queue\/rabbitmq/c\#queue\/rabbitmq" /data/config/plugins
-  fi  
-## SMTP Bridge
-  if [ "$QUEUE_SMTP_BRIDGE" = "TRUE" ] || [ "$QUEUE_LMTP" = "true" ];  then
-	sed -i -e "/queue\/smtp_bridge/c\/queue\/smtp_bridge" /data/config/plugins
-	if [ ! -f /data/config/smtp_bridge.ini ] ; then
-       cp -R /assets/haraka/config/smtp_bridge.ini /data/config/smtp_bridge.ini
-    fi
-    AUTH_BRIDGE=TRUE
-  else
-	sed -i -e "/queue\/smtp_bridge/c\#queue\/smtp_bridge" /data/config/plugins
-  fi  
-## SMTP Forward
-  if [ "$QUEUE_SMTP_FORWARD" = "TRUE" ] || [ "$QUEUE_LMTP" = "true" ];  then
-	sed -i -e "/queue\/smtp_forward/c\/queue\/smtp_forward" /data/config/plugins
-	if [ ! -f /data/config/smtp_forward.ini ] ; then
-       cp -R /assets/haraka/config/smtp_forward.ini /data/config/smtp_forward.ini
-    fi
-  else
-	sed -i -e "/queue\/smtp_forward/c\#queue\/smtp_forward" /data/config/plugins
-  fi  
-## SMTP Proxy
-  if [ "$QUEUE_SMTP_PROXY" = "TRUE" ] || [ "$QUEUE_LMTP" = "true" ];  then
-	sed -i -e "/queue\/smtp_proxy/c\/queue\/smtp_proxy" /data/config/plugins
-	if [ ! -f /data/config/lmtp.ini ] ; then
-       cp -R /assets/haraka/config/lmtp.ini /data/config/lmtp.ini
-    fi
-  else
-	sed -i -e "/queue\/smtp_proxy/c\#queue\/smtp_proxy" /data/config/plugins
-  fi  
+	## Discard
+	  if [ "$QUEUE_DISCARD" = "TRUE" ] || [ "$QUEUE_DISCARD" = "true" ];  then
+		sed -i -e "/queue\/discard/c\/queue\/discard" /data/config/plugins
+		if [ ! -f /data/config/lmtp.ini ] ; then
+	       cp -R /assets/haraka/config/lmtp.ini /data/config/lmtp.ini
+	    fi
+	  else
+		sed -i -e "/queue\/discard/c\#queue\/discard" /data/config/plugins
+	  fi  
+	## LMTP
+	  if [ "$QUEUE_LMTP" = "TRUE" ] || [ "$QUEUE_LMTP" = "true" ];  then
+		sed -i -e "/queue\/lmtp/c\/queue\/lmtp" /data/config/plugins
+		if [ ! -f /data/config/lmtp.ini ] ; then
+	       cp -R /assets/haraka/config/lmtp.ini /data/config/lmtp.ini
+	    fi
+	  else
+		sed -i -e "/queue\/lmtp/c\#queue\/lmtp" /data/config/plugins
+	  fi  
+	## Qmail
+	  if [ "$QUEUE_QMAIL" = "TRUE" ] || [ "$QUEUE_QMAIL" = "true" ];  then
+		sed -i -e "/queue\/qmail-queue/c\/queue\/qmail-queue" /data/config/plugins
+		if [ ! -f /data/config/qmail-queue.ini ] ; then
+	       cp -R /assets/haraka/config/qmail-queue.ini /data/config/qmail-queue.ini
+	    fi
+	  else
+		sed -i -e "/queue\/qmail-queue/c\#queue\/qmail-queue" /data/config/plugins
+	  fi  
+	## Quarantine
+	  if [ "$QUEUE_QUARANTINE" = "TRUE" ] || [ "$QUEUE_QUARANTINE" = "true" ];  then
+		sed -i -e "/queue\/quarantine/c\/queue\/quarantine" /data/config/plugins
+		if [ ! -f /data/config/quarantine.ini ] ; then
+	       cp -R /assets/haraka/config/quarantine.ini /data/config/quarantine.ini
+	    fi
+	  else
+		sed -i -e "/queue\/quarantine/c\#queue\/quarantine" /data/config/plugins
+	  fi  
+	## Quarantine
+	  if [ "$QUEUE_RABBITMQ" = "TRUE" ] || [ "$QUEUE_RABBITMQ" = "true" ];  then
+		sed -i -e "/queue\/rabbitmq/c\/queue\/rabbitmq" /data/config/plugins
+		if [ ! -f /data/config/rabbitmq.ini ] ; then
+	       cp -R /assets/haraka/config/rabbitmq.ini /data/config/rabbitmq.ini
+	    fi
+	    sed -i -e "/server_ip = /c\server_ip = $RABBITMQ_HOST" /data/config/rabbitmq.ini
+	    sed -i -e "/server_port = /c\server_port = $RABBITMQ_PORT" /data/config/rabbitmq.ini
+	  else
+		sed -i -e "/queue\/rabbitmq/c\#queue\/rabbitmq" /data/config/plugins
+	  fi  
+	## SMTP Bridge
+	  if [ "$QUEUE_SMTP_BRIDGE" = "TRUE" ] || [ "$QUEUE_SMTP_BRIDGE" = "true" ];  then
+		sed -i -e "/queue\/smtp_bridge/c\/queue\/smtp_bridge" /data/config/plugins
+		if [ ! -f /data/config/smtp_bridge.ini ] ; then
+	       cp -R /assets/haraka/config/smtp_bridge.ini /data/config/smtp_bridge.ini
+	    fi
+	    AUTH_BRIDGE=TRUE
+	  else
+		sed -i -e "/queue\/smtp_bridge/c\#queue\/smtp_bridge" /data/config/plugins
+	  fi  
+	## SMTP Forward
+	  if [ "$QUEUE_SMTP_FORWARD" = "TRUE" ] || [ "$QUEUE_SMTP_FORWARD" = "true" ];  then
+		sed -i -e "/queue\/smtp_forward/c\/queue\/smtp_forward" /data/config/plugins
+		if [ ! -f /data/config/smtp_forward.ini ] ; then
+	       cp -R /assets/haraka/config/smtp_forward.ini /data/config/smtp_forward.ini
+	    fi
+	  else
+		sed -i -e "/queue\/smtp_forward/c\#queue\/smtp_forward" /data/config/plugins
+	  fi  
+	## SMTP Proxy
+	  if [ "$QUEUE_SMTP_PROXY" = "TRUE" ] || [ "$QUEUE_SMTP_PROXY" = "true" ];  then
+		sed -i -e "/queue\/smtp_proxy/c\/queue\/smtp_proxy" /data/config/plugins
+		if [ ! -f /data/config/smtp_proxy.ini ] ; then
+	       cp -R /assets/haraka/config/smtp_proxy.ini /data/config/smtp_proxy.ini
+	    fi
+	  else
+		sed -i -e "/queue\/smtp_proxy/c\#queue\/smtp_proxy" /data/config/plugins
+	  fi  
 
 
-	fi
+AUTH_ENABLED=`set -o posix; set | sort | grep AUTH | grep TRUE |sed -e 's/AUTH_//g' | sed -e 's/=TRUE//g' | awk -vRS="" -vOFS=', ' '$1=$1' | tr A-Z a-z`
+echo '** [haraka] Enabling the following authentication methods: '$AUTH_ENABLED
 
+PLUGINS_ENABLED=`set -o posix; set | sort | grep PLUGIN | grep TRUE |sed -e 's/PLUGIN_//g' | sed -e 's/=TRUE//g' | awk -vRS="" -vOFS=', ' '$1=$1' | tr A-Z a-z`
+echo '** [haraka] Enabling the following plugins: '$PLUGINS_ENABLED
+
+QUEUES_ENABLED=`set -o posix; set | sort | grep QUEUE | grep TRUE |sed -e 's/QUEUE_//g' | sed -e 's/=TRUE//g' | awk -vRS="" -vOFS=', ' '$1=$1' | tr A-Z a-z`
+echo '** [haraka] Enabling the following queues: '$QUEUES_ENABLED
+
+
+mkdir -p `dirname $LOG_FILE`
 touch $LOG_FILE
-chown $USER:$GROUP $LOG_FILE
+chown -R $USER:$GROUP `dirname $LOG_FILE`
 mkdir -p $SPOOL_DIR
 chown -R $USER:$GROUP /data $SPOOL_DIR
 mkdir -p /tmp/state
