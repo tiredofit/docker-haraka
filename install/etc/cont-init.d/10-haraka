@@ -9,6 +9,8 @@ fi
 ### Set Defaults
 	MANUAL_CONFIG=${MANUAL_CONFIG:-"FALSE"}
 	ACCEPT_DOMAINS=${ACCEPT_DOMAINS:-"example.com"}
+	CLAMD_HOST=${CLAMD_HOST:-"clamd"}
+	CLAMD_PORT=${CLAMD_PORT:-"3310"}
 	EARLY_TALKER_DELAY=${EARLY_TALKER_DELAY:-"1000"}
 	ENABLE_VMAIL=${ENABLE_VMAIL:="TRUE"}
     ENABLE_LDAP=${ENABLE_LDAP:="FALSE"}
@@ -41,9 +43,12 @@ fi
 	SPOOL_AFTER=${SPOOL_AFTER:-"-1"}
 	SPOOL_DIR=${SPOOL_DIR:-"/var/spool/haraka"}
 	STRICT_RFC1869=${STRICT_RFC1869:-"FALSE"}
+	TLS_CERT=${TLS_CERT:-"smtp.pem"}
+	TLS_KEY=${TLS_KEY:-"smtp.key"}
+    TLS_DHPARAM=${TLS_DHPARAM}:-"smtp.dhparam"
 	USER=${USER:-"haraka"}
 	UUID_DENY_NUMBER=${UUID_DENY_NUMBER:-"6"}
-	VMAIL_DIR=${VMAIL_DIR:="/vmail"}
+	VMAIL_DIR=${VMAIL_DIR:-"/vmail"}
 
     AUTH_BRIDGE=${AUTH_BRIDGE:-false}
     AUTH_FLAT_FILE=${AUTH_FLAT_FILE:-false}
@@ -66,7 +71,6 @@ fi
 	PLUGIN_HELO_CHECKS=${PLUGIN_HELO_CHECKS:-"TRUE"}
 	PLUGIN_KARMA=${PLUGIN_KARMA:-"TRUE"}
 	PLUGIN_KNOWN_SENDERS=${PLUGIN_KNOWN_SENDERS:-"TRUE"}
-	PLUGIN_LDAP=${PLUGIN_LDAP:-"TRUE"}
 	PLUGIN_LIMIT=${PLUGIN_LIMIT:-"TRUE"}
 	PLUGIN_MAIL_FROM_IS_RESOLVABLE=${PLUGIN_MAIL_FROM_IS_RESOLVABLE:-"TRUE"}
 	PLUGIN_P0F=${PLUGIN_P0F:-"TRUE"}
@@ -77,6 +81,7 @@ fi
 	PLUGIN_SPF=${PLUGIN_SPF:-"FALSE"}
 	PLUGIN_TOOBUSY_MAXLAG=${PLUGIN_TOOBUSY_MAXLAG:-"70"}
 	PLUGIN_TOOBUSY=${PLUGIN_TOOBUSY:-"TRUE"}
+	PLUGIN_TLS=${PLUGIN_TLS:-"TRUE"}
 	PLUGIN_WATCH=${PLUGIN_WATCH:-"FALSE"}
 
     QUEUE_DISCARD=${QUEUE_DISCARD:-"FALSE"}
@@ -378,7 +383,7 @@ fi
 		if [ ! -f /data/config/clamd.ini ] ; then
 		   cp -R /assets/haraka/config/clamd.ini /data/config/clamd.ini
 		fi
-	    sed -i -e "/clamd_socket=/c\spamd_socket=$CLAMD_HOST" /data/config/spamassassin.ini
+	    sed -i -e "/clamd_socket=/c\spamd_socket=$CLAMD_HOST:$CLAMD_PORT" /data/config/spamassassin.ini
 	  else
 	  	sed -i -e "/clamd/c\#clamd" /data/config/plugins
 	  fi
@@ -400,6 +405,33 @@ fi
 	  else
 	  	sed -i -e "/data.uribl/c\#data.uribl" /data/config/plugins
 	  fi
+	 ## DKIM Sign
+	  if [ "$PLUGIN_DKIM_SIGN" = "TRUE" ] || [ "$PLUGIN_DKIM_SIGN" = "true" ];  then
+		sed -i -e "/dkim_sign/c\dkim_sign" /data/config/plugins
+		if [ ! -f /data/config/dkim_sign.ini ] ; then
+		   cp -R /assets/haraka/config/dkim_sign.ini /data/config/dkim_sign.ini
+		fi
+		   chmod +x /data/config/dkim_key_gen.sh
+		   cd /data/config/dkim/
+		   dkim_domains=$(echo $DKIM_DOMAINS | tr " " "\n")
+			for dkim_domain in $dkim_domains
+				do
+			        if [ ! -d "/data/config/dkim/$dkim_domain" ]; then
+						./dkim_key_gen.sh $domain        
+				    
+				done
+           sed -i -e "/disabled =/c\disabled = false" /data/config/dkim_sign.ini
+	  else
+	    sed -i -e "/dkim_sign/c\#dkim_sign" /data/config/plugins
+	  fi
+	 ## DKIM Verify
+	  if [ "$PLUGIN_DKIM_VERIFY" = "TRUE" ] || [ "$PLUGIN_DKIM_VERIFY" = "true" ];  then
+		sed -i -e "/dkim_verify/c\dkim_verify" /data/config/plugins
+		
+	  else
+	    sed -i -e "/dkim_verify/c\#dkim_verify" /data/config/plugins
+	  fi
+
 	 ## DNS Blacklist Checks
 	  if [ "$PLUGIN_DNSBL" = "TRUE" ] || [ "$PLUGIN_DNSBL" = "true" ];  then
 		sed -i -e "/dnsbl/c\dnsbl" /data/config/plugins
@@ -573,6 +605,66 @@ fi
 	  else
 	  	sed -i -e "/toobusy/c\#toobusy" /data/config/plugins
 	  fi
+	 ## TLS
+	  if [ "$PLUGIN_TLS" = "TRUE" ] || [ "$PLUGIN_TLS" = "true" ];  then
+		sed -i -e "/tls/c\tls" /data/config/plugins
+		if [ ! -f /data/config/tls.ini ] ; then
+		   cp -R /assets/haraka/config/tls.ini /data/config/tls.ini
+		fi
+        if [ ! -f /certs/$TLS_DHPARAM ] ; then
+		   echo '** [haraka] Generating diffie-hellman parameters, please wait..'
+		   openssl dhparam -out config/dhparams.pem 2048
+		fi
+        if [ ! -f /certs/$TLS_CERT ] || [ ! -f /certs/$TLS_KEY ]; then
+		   echo '** [haraka] No TLS Certs Found, Autogenerating Self Signed Certificates'
+		   	 	    cat <<EOF > /tmp/openssl.cnf
+[ req ]
+default_bits = 1024
+encrypt_key = yes
+distinguished_name = req_dn
+x509_extensions = cert_type
+prompt = no
+
+[ req_dn ]
+# country (2 letter code)
+C=XX
+
+# State or Province Name (full name)
+ST=XX
+
+# Locality Name (eg. city)
+L=Earth
+
+# Organization (eg. company)
+O=Haraka
+
+# Organizational Unit Name (eg. section)
+OU=SMTP Server
+
+# Common Name (*.example.com is also possible)
+CN=$HOSTNAME
+
+# E-mail contact
+emailAddress=postmaster@${HOSTNAME#*.}
+
+[ cert_type ]
+nsCertType = server	 	
+EOF
+
+	 	openssl req -new -x509 -nodes -days 365 \
+	                -config /tmp/openssl.cnf \
+	                -out /certs/$TLS_CERT \
+	                -keyout /certs/$TLS_KEY
+	 	chmod -R 0600 /certs/*
+	    rm -rf /tmp/openssl.cnf
+		fi
+
+        sed -i -e "/cert=/c\cert=\/certs\/$TLS_CERT" /data/config/tls.ini
+        sed -i -e "/key=/c\key=\/certs\/$TLS_KEY" /data/config/tls.ini
+        sed -i -e "/dhparam=/c\dhparam=\/certs\/$TLS_DHPARAM" /data/config/tls.ini
+	  else
+	  	sed -i -e "/tls/c\#tls" /data/config/plugins
+	  fi
 	 ## Watch
 	  if [ "$PLUGIN_WATCH" = "TRUE" ] || [ "$PLUGIN_WATCH" = "true" ];  then
 		sed -i -e "/watch/c\watch" /data/config/plugins
@@ -669,7 +761,7 @@ fi
 		sed -i -e "/queue\/smtp_proxy/c\#queue\/smtp_proxy" /data/config/plugins
 	  fi  
 
-
+### Output what plugins are enabled
 AUTH_ENABLED=`set -o posix; set | sort | grep AUTH | grep TRUE |sed -e 's/AUTH_//g' | sed -e 's/=TRUE//g' | awk -vRS="" -vOFS=', ' '$1=$1' | tr A-Z a-z`
 echo '** [haraka] Enabling the following authentication methods: '$AUTH_ENABLED
 
@@ -678,6 +770,8 @@ echo '** [haraka] Enabling the following plugins: '$PLUGINS_ENABLED
 
 QUEUES_ENABLED=`set -o posix; set | sort | grep QUEUE | grep TRUE |sed -e 's/QUEUE_//g' | sed -e 's/=TRUE//g' | awk -vRS="" -vOFS=', ' '$1=$1' | tr A-Z a-z`
 echo '** [haraka] Enabling the following queues: '$QUEUES_ENABLED
+
+fi
 
 
 mkdir -p `dirname $LOG_FILE`
