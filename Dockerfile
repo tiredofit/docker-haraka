@@ -1,15 +1,24 @@
-FROM tiredofit/nodejs:6-latest
+FROM tiredofit/nodejs:8-latest
 LABEL maintainer="Dave Conroy (dave at tiredofit dot ca)"
 
 ### Disable Features From Base Image
     ENV ENABLE_SMTP=false
 
+### Create User
+    RUN addgroup haraka && \
+        adduser -S \
+                -D -G haraka \
+                -h /data/ \
+            haraka && \
+
+
 ### Install Build Dependencies
-    RUN apk update ; \
+        apk update && \
         apk add --virtual haraka-build-dependencies \
             gcc \
             g++ \
             libpcap-dev \
+            libtool \
             make \
             musl-dev \
             && \
@@ -18,14 +27,25 @@ LABEL maintainer="Dave Conroy (dave at tiredofit dot ca)"
         apk add \
             curl \
             libpcap \
+            libressl \
             python \
             tar \
             wget \
             && \
 
+### Build Iconv
+        mkdir -p /usr/src/iconv && \
+        curl http://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.15.tar.gz | tar xfz - --strip 1 -C /usr/src/iconv && \
+        cd /usr/src/iconv && \
+        sed -i 's/_GL_WARN_ON_USE (gets, "gets is a security hole - use fgets instead");/#if HAVE_RAW_DECL_GETS\n_GL_WARN_ON_USE (gets, "gets is a security hole - use fgets instead");\n#endif/g' srclib/stdio.in.h && \
+        ./configure --prefix=/usr/local && \
+        make && \
+        make install && \
+        libtool --finish /usr/local/lib && \
+
 #### Install Haraka
         cd /usr/src && \
-        npm -g install \
+            npm -g install --unsafe-perm --production \
             Haraka \
             haraka-plugin-geoip \
             haraka-plugin-ldap \
@@ -40,19 +60,12 @@ LABEL maintainer="Dave Conroy (dave at tiredofit dot ca)"
 
 #### Install p0f
         mkdir -p /usr/src/p0f && \
-        curl http://lcamtuf.coredump.cx/p0f3/releases/p0f-3.09b.tgz | tar xzvf - --strip 1 -C /usr/src/p0f && \
+        curl http://lcamtuf.coredump.cx/p0f3/releases/p0f-3.09b.tgz | tar xzf - --strip 1 -C /usr/src/p0f && \
         cd /usr/src/p0f && \
         ./build.sh && \
         cp p0f /usr/sbin/ && \
         cp p0f.fp /etc/p0f.fp && \
                 
-### Add User
-        addgroup haraka && \
-        adduser -S \
-                -D -G haraka \
-                -h /data/ \
-            haraka && \
-
 ### Misc & Cleanup
             ln -s /data/geoip /usr/local/share/GeoIP && \
             apk del --purge haraka-build-dependencies && \
@@ -62,4 +75,4 @@ LABEL maintainer="Dave Conroy (dave at tiredofit dot ca)"
     ADD install /
 
 ### Networking Configuration
-    EXPOSE 25 143 465 587 993 995
+    EXPOSE 25 587

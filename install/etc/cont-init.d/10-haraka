@@ -12,7 +12,7 @@ fi
 	CLAMD_HOST=${CLAMD_HOST:-"clamd"}
 	CLAMD_PORT=${CLAMD_PORT:-"3310"}
 	EARLY_TALKER_DELAY=${EARLY_TALKER_DELAY:-"1000"}
-	ENABLE_VMAIL=${ENABLE_VMAIL:="TRUE"}
+	ENABLE_VMAIL=${ENABLE_VMAIL:="FALSE"}
     ENABLE_LDAP=${ENABLE_LDAP:="FALSE"}
     ENABLE_LMTP=${ENABLE_LMTP:="FALSE"}
 	GROUP=${GROUP:-"haraka"}
@@ -33,7 +33,7 @@ fi
 	RABBITMQ_HOST=${RABBITMQ_HOST:-"rabbitmq"}
 	RABBITMQ_POST=${RABBITMQ_PORT:-"5672"}
 	REDIS_DB=${REDIS_DB:-"1"}
-	REDIS_HOST=${REDIS_HOST:-"haraka-redis"}
+	REDIS_HOST=${REDIS_HOST:-"redis"}
 	REDIS_PORT=${REDIS_PORT:-"6379"}
 	RSPAMD_HOST=${RSPAMD_HOST:-"rspamd"}
 	RSPAMD_PORT=${RSPAMD_PORT:-"11333"}
@@ -43,9 +43,8 @@ fi
 	SPOOL_AFTER=${SPOOL_AFTER:-"-1"}
 	SPOOL_DIR=${SPOOL_DIR:-"/var/spool/haraka"}
 	STRICT_RFC1869=${STRICT_RFC1869:-"FALSE"}
-	TLS_CERT=${TLS_CERT:-"smtp.pem"}
-	TLS_KEY=${TLS_KEY:-"smtp.key"}
-    TLS_DHPARAM=${TLS_DHPARAM}:-"smtp.dhparam"
+	TLS_CERT=${TLS_CERT:-"tls_cert.pem"}
+	TLS_KEY=${TLS_KEY:-"tls_key.pem"}
 	USER=${USER:-"haraka"}
 	UUID_DENY_NUMBER=${UUID_DENY_NUMBER:-"6"}
 	VMAIL_DIR=${VMAIL_DIR:-"/vmail"}
@@ -60,27 +59,27 @@ fi
 	PLUGIN_ATTACHMENT=${PLUGIN_ATTACHMENT:-"FALSE"}
 	PLUGIN_BOUNCE=${PLUGIN_BOUNCE:-"FALSE"}
 	PLUGIN_CLAMD=${PLUGIN_CLAMD:-"FALSE"}
-	PLUGIN_DATA_HEADERS=${PLUGIN_DATA_HEADERS:-"TRUE"}
+	PLUGIN_DATA_HEADERS=${PLUGIN_DATA_HEADERS:-"FALSE"}
 	PLUGIN_DATA_URIBL=${PLUGIN_DATA_URIBL:-"FALSE"}
 	PLUGIN_DKIM_SIGN=${PLUGIN_DKIM_SIGN:-"FALSE"}
 	PLUGIN_DNSBL=${PLUGIN_DNSBL:-"TRUE"}
-	PLUGIN_EARLY_TALKER=${PLUGIN_EARLY_TALKER:-"TRUE"}
+	PLUGIN_EARLY_TALKER=${PLUGIN_EARLY_TALKER:-"FALSE"}
 	PLUGIN_FCRDNS=${PLUGIN_FCRDNS:-"FALSE"}
 	PLUGIN_GEOIP=${PLUGIN_GEOIP:-"FALSE"}
-	PLUGIN_GREYLIST=${PLUGIN_GREYLIST:-"TRUE"}
+	PLUGIN_GREYLIST=${PLUGIN_GREYLIST:-"FALSE"}
 	PLUGIN_HELO_CHECKS=${PLUGIN_HELO_CHECKS:-"TRUE"}
-	PLUGIN_KARMA=${PLUGIN_KARMA:-"TRUE"}
-	PLUGIN_KNOWN_SENDERS=${PLUGIN_KNOWN_SENDERS:-"TRUE"}
+	PLUGIN_KARMA=${PLUGIN_KARMA:-"FALSE"}
+	PLUGIN_KNOWN_SENDERS=${PLUGIN_KNOWN_SENDERS:-"FALSE"}
 	PLUGIN_LIMIT=${PLUGIN_LIMIT:-"TRUE"}
 	PLUGIN_MAIL_FROM_IS_RESOLVABLE=${PLUGIN_MAIL_FROM_IS_RESOLVABLE:-"TRUE"}
-	PLUGIN_P0F=${PLUGIN_P0F:-"TRUE"}
+	PLUGIN_P0F=${PLUGIN_P0F:-"FALSE"}
 	PLUGIN_PROCESS_TITLE=${PLUGIN_PROCESS_TITLE:-"TRUE"}
 	PLUGIN_RCPT_TO_LDAP=${PLUGIN_RCPT_TO_LDAP:-"FALSE"}
 	PLUGIN_RSPAMD=${PLUGIN_RSPAMD:-"FALSE"}
 	PLUGIN_SPAMASSASSIN=${PLUGIN_SPAMASSASSIN:-"FALSE"}
 	PLUGIN_SPF=${PLUGIN_SPF:-"FALSE"}
 	PLUGIN_TOOBUSY_MAXLAG=${PLUGIN_TOOBUSY_MAXLAG:-"70"}
-	PLUGIN_TOOBUSY=${PLUGIN_TOOBUSY:-"TRUE"}
+	PLUGIN_TOOBUSY=${PLUGIN_TOOBUSY:-"FALSE"}
 	PLUGIN_TLS=${PLUGIN_TLS:-"TRUE"}
 	PLUGIN_WATCH=${PLUGIN_WATCH:-"FALSE"}
 
@@ -223,7 +222,7 @@ EOF
 	  fi
 
     cat <<EOF > /data/config/smtp.ini
-listen=$LISTEN_ADDRESS
+listen=[::0]:25,[::0]:587
 ;public_ip=N.N.N.N
 inactivity_timeout=$INACTIVITY_TIMEOUT 
 user=$USER
@@ -284,17 +283,17 @@ fi
     	fi
     	QUEUE_BRIDGE=TRUE
   	else
-	sed -i -e "/auth\/bridge/c\/#auth\/bridge" /data/config/plugins
+	sed -i -e "/auth\/bridge/c\#auth\/bridge" /data/config/plugins
   	fi
 
     ## Flat File
 	if [ "$AUTH_FLAT_FILE" = "TRUE" ] || [ "$AUTH_FLAT_FILE" = "true" ];  then
-  		sed -i -e "/auth\/flat_file/c\/auth\/flat_file" /data/config/plugins
+  		sed -i -e "/auth\/flat_file/c\auth\/flat_file" /data/config/plugins
 		if [ ! -f /data/config/auth_flat_file.ini ] ; then
        		cp -R /assets/haraka/config/auth_flat_file.ini /data/config/auth_flat_file.ini
     	fi
   		else
-		sed -i -e "/auth\/flat_file/c\/#auth\/flat_file" /data/config/plugins
+		sed -i -e "/auth\/flat_file/c\#auth\/flat_file" /data/config/plugins
   	fi
 
 	## LDAP (Also does auth, aliases, rcpt_to and authz)
@@ -302,12 +301,12 @@ fi
 
 	    if [ "$LDAP_TLS" = "TRUE" ] || [ "$LDAP_TLS" = "true" ];  then
 	        LDAP_SCHEME="ldaps://"
-	    	if [! -n $LDAP_PORT ]; then
+	    	if [ ! -n $LDAP_PORT ]; then
 	    		LDAP_PORT=636
 	    	fi
 	    else
 	    	LDAP_SCHEME="ldap://"
-	    	if [! -n $LDAP_PORT ]; then
+	    	if [ ! -n $LDAP_PORT ]; then
 	    		LDAP_PORT=389
 	    	fi
 	    fi
@@ -315,7 +314,7 @@ fi
 		if [ ! -f /data/config/ldap.ini ] ; then
 		   cp -R /assets/haraka/config/ldap.ini /data/config/ldap.ini
 		fi
-		    sed -i -e "/server[] = /c\server[] = $LDAP_SCHEME$LDAP_HOST:$LDAP_PORT" /data/config/ldap.ini
+		    sed -i -e "/server\[\] = /c\server\[\] = $LDAP_SCHEME$LDAP_HOST:$LDAP_PORT" /data/config/ldap.ini
 		    sed -i -e "/binddn = /c\binddn = $LDAP_BIND_DN" /data/config/ldap.ini
 		    sed -i -e "/bindpw = /c\bindpw = $LDAP_BIND_PASS" /data/config/ldap.ini
 		    sed -i -e "/basedn = /c\basedn = $LDAP_BASE_DN" /data/config/ldap.ini
@@ -325,22 +324,22 @@ fi
 
     ## Proxy
 	if [ "$AUTH_PROXY" = "TRUE" ] || [ "$AUTH_PROXY" = "true" ];  then
-		sed -i -e "/auth\/proxy/c\/auth\/proxy" /data/config/plugins
+		sed -i -e "/auth\/proxy/c\auth\/proxy" /data/config/plugins
 		if [ ! -f /data/config/auth_proxy.ini ] ; then
 			cp -R /assets/haraka/config/auth_proxy.ini /data/config/auth_proxy.ini
 		fi
 		else
-		sed -i -e "/auth\/proxy/c\/#auth\/proxy" /data/config/plugins
+		sed -i -e "/auth\/proxy/c\#auth\/proxy" /data/config/plugins
 	fi
 
     ## Vpopmail
 	if [ "$AUTH_VPOPMAILD" = "TRUE" ] || [ "$AUTH_VPOPMAILD" = "true" ];  then
-		sed -i -e "/auth\/vpopmail.d/c\/auth\/vpopmail.d" /data/config/plugins
+		sed -i -e "/auth\/vpopmail.d/c\auth\/vpopmail.d" /data/config/plugins
 		if [ ! -f /data/config/auth_vpopmaild.ini ] ; then
 		cp -R /assets/haraka/config/auth_vpopmaild.ini /data/config/auth_vpopmaild.ini
 		fi
 	else
-		sed -i -e "/auth\/vpopmail.d/c\/#auth\/vpopmail.d" /data/config/plugins
+		sed -i -e "/auth\/vpopmail.d/c\#auth\/vpopmail.d" /data/config/plugins
 	fi
 
 ### Plugin Configuration
@@ -383,7 +382,7 @@ fi
 		if [ ! -f /data/config/clamd.ini ] ; then
 		   cp -R /assets/haraka/config/clamd.ini /data/config/clamd.ini
 		fi
-	    sed -i -e "/clamd_socket=/c\spamd_socket=$CLAMD_HOST:$CLAMD_PORT" /data/config/spamassassin.ini
+	    sed -i -e "/clamd_socket=/c\spamd_socket=$CLAMD_HOST:$CLAMD_PORT" /data/config/clamd.ini
 	  else
 	  	sed -i -e "/clamd/c\#clamd" /data/config/plugins
 	  fi
@@ -418,7 +417,7 @@ fi
 				do
 			        if [ ! -d "/data/config/dkim/$dkim_domain" ]; then
 						./dkim_key_gen.sh $domain        
-				    
+                    fi
 				done
            sed -i -e "/disabled =/c\disabled = false" /data/config/dkim_sign.ini
 	  else
@@ -463,9 +462,9 @@ fi
 	  if [ "$PLUGIN_GEOIP" = "TRUE" ] || [ "$PLUGIN_GEOIP" = "true" ];  then
 		sed -i -e "/geoip/c\geoip" /data/config/plugins
 		if [ ! -f /data/config/geoip.ini ] ; then
-		   cp -R /assets/haraka/config/geoip.ini /data/config/
+		   cp -R /assets/haraka/config/geoip.ini /data/config/geoip.ini
 		fi
-		sed -i -e "/dbdir=/usr/local/share/GeoIP/c\dbdir=/usr/local/share/GeoIP" /data/config/geoip.ini
+		sed -i -e "/dbdir=/c\dbdir=\/usr\/local\/share\/GeoIP" /data/config/geoip.ini
 		if [ ! -d /data/geoip ] ; then
 		    mkdir -p /data/geoip
 			echo '** [haraka] Downloading Initial GeoIP Database'
@@ -611,11 +610,7 @@ fi
 		if [ ! -f /data/config/tls.ini ] ; then
 		   cp -R /assets/haraka/config/tls.ini /data/config/tls.ini
 		fi
-        if [ ! -f /certs/$TLS_DHPARAM ] ; then
-		   echo '** [haraka] Generating diffie-hellman parameters, please wait..'
-		   openssl dhparam -out config/dhparams.pem 2048
-		fi
-        if [ ! -f /certs/$TLS_CERT ] || [ ! -f /certs/$TLS_KEY ]; then
+        if [[ ! -f "/data/config/$TLS_CERT" ]] || [[ ! -f "/data/config/$TLS_KEY" ]]; then
 		   echo '** [haraka] No TLS Certs Found, Autogenerating Self Signed Certificates'
 		   	 	    cat <<EOF > /tmp/openssl.cnf
 [ req ]
@@ -653,15 +648,14 @@ EOF
 
 	 	openssl req -new -x509 -nodes -days 365 \
 	                -config /tmp/openssl.cnf \
-	                -out /certs/$TLS_CERT \
-	                -keyout /certs/$TLS_KEY
+	                -out /data/config/$TLS_CERT \
+	                -keyout /data/config/$TLS_KEY
 	 	chmod -R 0600 /certs/*
 	    rm -rf /tmp/openssl.cnf
 		fi
 
-        sed -i -e "/cert=/c\cert=\/certs\/$TLS_CERT" /data/config/tls.ini
-        sed -i -e "/key=/c\key=\/certs\/$TLS_KEY" /data/config/tls.ini
-        sed -i -e "/dhparam=/c\dhparam=\/certs\/$TLS_DHPARAM" /data/config/tls.ini
+        sed -i -e "/cert=/c\cert=$TLS_CERT" /data/config/tls.ini
+        sed -i -e "/key=/c\key=$TLS_KEY" /data/config/tls.ini
 	  else
 	  	sed -i -e "/tls/c\#tls" /data/config/plugins
 	  fi
@@ -687,25 +681,24 @@ EOF
 ### Queue Configuration
 	## Discard
 	  if [ "$QUEUE_DISCARD" = "TRUE" ] || [ "$QUEUE_DISCARD" = "true" ];  then
-		sed -i -e "/queue\/discard/c\/queue\/discard" /data/config/plugins
-		if [ ! -f /data/config/lmtp.ini ] ; then
-	       cp -R /assets/haraka/config/lmtp.ini /data/config/lmtp.ini
-	    fi
+		sed -i -e "/queue\/discard/c\queue\/discard" /data/config/plugins
 	  else
 		sed -i -e "/queue\/discard/c\#queue\/discard" /data/config/plugins
 	  fi  
 	## LMTP
 	  if [ "$QUEUE_LMTP" = "TRUE" ] || [ "$QUEUE_LMTP" = "true" ];  then
-		sed -i -e "/queue\/lmtp/c\/queue\/lmtp" /data/config/plugins
+		sed -i -e "/queue\/lmtp/c\queue\/lmtp" /data/config/plugins
 		if [ ! -f /data/config/lmtp.ini ] ; then
 	       cp -R /assets/haraka/config/lmtp.ini /data/config/lmtp.ini
 	    fi
+	    sed -i -e "/host=/c\host=$LMTP_HOST" /data/config/lmtp.ini
+	    sed -i -e "/port=/c\port=$LMTP_PORT" /data/config/lmtp.ini
 	  else
 		sed -i -e "/queue\/lmtp/c\#queue\/lmtp" /data/config/plugins
 	  fi  
 	## Qmail
 	  if [ "$QUEUE_QMAIL" = "TRUE" ] || [ "$QUEUE_QMAIL" = "true" ];  then
-		sed -i -e "/queue\/qmail-queue/c\/queue\/qmail-queue" /data/config/plugins
+		sed -i -e "/queue\/qmail-queue/c\queue\/qmail-queue" /data/config/plugins
 		if [ ! -f /data/config/qmail-queue.ini ] ; then
 	       cp -R /assets/haraka/config/qmail-queue.ini /data/config/qmail-queue.ini
 	    fi
@@ -714,7 +707,7 @@ EOF
 	  fi  
 	## Quarantine
 	  if [ "$QUEUE_QUARANTINE" = "TRUE" ] || [ "$QUEUE_QUARANTINE" = "true" ];  then
-		sed -i -e "/queue\/quarantine/c\/queue\/quarantine" /data/config/plugins
+		sed -i -e "/queue\/quarantine/c\queue\/quarantine" /data/config/plugins
 		if [ ! -f /data/config/quarantine.ini ] ; then
 	       cp -R /assets/haraka/config/quarantine.ini /data/config/quarantine.ini
 	    fi
@@ -723,7 +716,7 @@ EOF
 	  fi  
 	## Quarantine
 	  if [ "$QUEUE_RABBITMQ" = "TRUE" ] || [ "$QUEUE_RABBITMQ" = "true" ];  then
-		sed -i -e "/queue\/rabbitmq/c\/queue\/rabbitmq" /data/config/plugins
+		sed -i -e "/queue\/rabbitmq/c\queue\/rabbitmq" /data/config/plugins
 		if [ ! -f /data/config/rabbitmq.ini ] ; then
 	       cp -R /assets/haraka/config/rabbitmq.ini /data/config/rabbitmq.ini
 	    fi
@@ -734,7 +727,7 @@ EOF
 	  fi  
 	## SMTP Bridge
 	  if [ "$QUEUE_SMTP_BRIDGE" = "TRUE" ] || [ "$QUEUE_SMTP_BRIDGE" = "true" ];  then
-		sed -i -e "/queue\/smtp_bridge/c\/queue\/smtp_bridge" /data/config/plugins
+		sed -i -e "/queue\/smtp_bridge/c\queue\/smtp_bridge" /data/config/plugins
 		if [ ! -f /data/config/smtp_bridge.ini ] ; then
 	       cp -R /assets/haraka/config/smtp_bridge.ini /data/config/smtp_bridge.ini
 	    fi
@@ -744,7 +737,7 @@ EOF
 	  fi  
 	## SMTP Forward
 	  if [ "$QUEUE_SMTP_FORWARD" = "TRUE" ] || [ "$QUEUE_SMTP_FORWARD" = "true" ];  then
-		sed -i -e "/queue\/smtp_forward/c\/queue\/smtp_forward" /data/config/plugins
+		sed -i -e "/queue\/smtp_forward/c\queue\/smtp_forward" /data/config/plugins
 		if [ ! -f /data/config/smtp_forward.ini ] ; then
 	       cp -R /assets/haraka/config/smtp_forward.ini /data/config/smtp_forward.ini
 	    fi
@@ -753,7 +746,7 @@ EOF
 	  fi  
 	## SMTP Proxy
 	  if [ "$QUEUE_SMTP_PROXY" = "TRUE" ] || [ "$QUEUE_SMTP_PROXY" = "true" ];  then
-		sed -i -e "/queue\/smtp_proxy/c\/queue\/smtp_proxy" /data/config/plugins
+		sed -i -e "/queue\/smtp_proxy/c\queue\/smtp_proxy" /data/config/plugins
 		if [ ! -f /data/config/smtp_proxy.ini ] ; then
 	       cp -R /assets/haraka/config/smtp_proxy.ini /data/config/smtp_proxy.ini
 	    fi
