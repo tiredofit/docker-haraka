@@ -1,0 +1,73 @@
+# Plugin ordering often matters, run 'haraka -o -c /path/to/haraka/config'
+# to see the order plugins (and their hooks) will run in.
+# To see a list of all plugins, run 'haraka -l'
+# To see the help docs for a particular plugin, run 'haraka -h plugin.name'
+
+process_title
+#syslog
+
+# CONNECT
+toobusy
+#relay
+access
+connect.p0f
+#geoip
+#asn
+#fcrdns
+dnswl
+dnsbl
+# HELO
+early_talker
+helo.checks
+#ldap
+tls
+#auth/flat_file
+#auth/auth_proxy
+#auth/auth_bridge
+#auth/auth_vpopmail.d
+
+#MAIL FROM
+#dkim_verify
+mail_from.is_resolvable
+#spf
+
+# RCPT TO
+rcpt_to.in_host_list
+#qmail-deliverable
+#rcpt_to.access
+#rcpt_to.maxcount
+#rcpt_to.routes
+
+# DATA
+#prevent_credential_leaks
+#bounce
+data.headers
+#data.uribl
+#attachment
+#avg
+#clamd
+#spamassassin
+#rspamd
+#dkim_sign
+karma
+limit
+
+# QUEUE
+#queue/discard
+#queue/lmtp
+#queue/qmail-queue
+#queue/quarantine
+#queue/rabbitmq
+#queue/smtp_bridge
+#queue/smtp_forward
+#queue/smtp_proxy
+
+# MailDir Extension
+#maildir/maildir
+
+# Error Checking
+max_unrecognized_commands
+
+# HTTP
+#graph
+#watch

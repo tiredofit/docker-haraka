@@ -11,4 +11,4 @@ fi
 
 echo ''
 echo '** Starting p0f'
-exec /usr/sbin/p0f -f /etc/p0f.fp -u haraka -s /tmp/.p0f_socket 'dst port 25 or dst port 587'
+exec /usr/sbin/p0f -f /etc/p0f.fp -u haraka -s /tmp/.p0f_socket 'dst port 25 or dst port 587' >/dev/null 2>&1

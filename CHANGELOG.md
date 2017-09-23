@@ -1,3 +1,9 @@
+## 0.5 2017-09-23 Dave Conroy <dave at tiredofit dot ca>
+
+* Feature Complete
+* Tested all Plugins
+* Add various node modules to support plugins
+
 ## 0.4 2017-09-17 Dave Conroy <dave at tiredofit dot ca>
 
 * Added LDAP Plugin (Replaces auth_ldap)

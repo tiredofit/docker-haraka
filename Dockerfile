@@ -46,6 +46,7 @@ LABEL maintainer="Dave Conroy (dave at tiredofit dot ca)"
 #### Install Haraka
         cd /usr/src && \
             npm -g install --unsafe-perm --production \
+            express \
             Haraka \
             haraka-plugin-geoip \
             haraka-plugin-ldap \
@@ -54,7 +55,9 @@ LABEL maintainer="Dave Conroy (dave at tiredofit dot ca)"
             iconv \
             maxmind-geolite-mirror \
             mkdirp \
+            sqlite3 \
             toobusy-js \
+            tmp \
             && \
 
 

@@ -25,6 +25,7 @@ fi
 	LMTP_PORT=${LMTP_PORT:-"24"}
 	LOG_FILE=${LOG_FILE:-"/var/log/haraka/haraka.log"}
 	LOG_LEVEL=${LOG_LEVEL:-"INFO"}
+	LOG_TIMESTAMP=${LOG_TIMESTAMP:-"TRUE"}
 	MAXIMUM_MESSAGE_SIZE=${MAXIMUM_MESSAGE_SIZE:-"26214400"}
     MAX_UNRECOGNIZED_COMMANDS=${MAX_UNRECOGNIZED_COMMANDS:-"10"}
 	MAX_RECEIVED_COUNT=${MAX_RECEIVED_COUNT:-"100"}
@@ -40,6 +41,7 @@ fi
 	SMTP_GREETING=${SMTP_GREETING:-"SMTP Service"}
 	SMTP_PORT=${SMTP_PORT:-"25"}
 	SPAMASSASSIN_HOST=${SPAMASSASSIN_HOST:-"spamassassin"}
+	SPAMASSASSIN_PORT=${SPAMASSASSIN_PORT:-"783"}
 	SPOOL_AFTER=${SPOOL_AFTER:-"-1"}
 	SPOOL_DIR=${SPOOL_DIR:-"/var/spool/haraka"}
 	STRICT_RFC1869=${STRICT_RFC1869:-"FALSE"}
@@ -55,6 +57,7 @@ fi
     AUTH_PROXY=${AUTH_PROXY:-false}
     AUTH_VPOPMAILD=${AUTH_VPOPMAILD:-false}
 
+	PLUGIN_ACCESS=${PLUGIN_ACCESS:-"TRUE"}
 	PLUGIN_ASN=${PLUGIN_ASN:-"FALSE"}
 	PLUGIN_ATTACHMENT=${PLUGIN_ATTACHMENT:-"FALSE"}
 	PLUGIN_BOUNCE=${PLUGIN_BOUNCE:-"FALSE"}
@@ -62,19 +65,24 @@ fi
 	PLUGIN_DATA_HEADERS=${PLUGIN_DATA_HEADERS:-"FALSE"}
 	PLUGIN_DATA_URIBL=${PLUGIN_DATA_URIBL:-"FALSE"}
 	PLUGIN_DKIM_SIGN=${PLUGIN_DKIM_SIGN:-"FALSE"}
+	PLUGIN_DKIM_VERIFY=${PLUGIN_DKIM_VERIFY:-"FALSE"}
 	PLUGIN_DNSBL=${PLUGIN_DNSBL:-"TRUE"}
+	PLUGIN_DNSWL=${PLUGIN_DNSBL:-"TRUE"}
 	PLUGIN_EARLY_TALKER=${PLUGIN_EARLY_TALKER:-"FALSE"}
 	PLUGIN_FCRDNS=${PLUGIN_FCRDNS:-"FALSE"}
 	PLUGIN_GEOIP=${PLUGIN_GEOIP:-"FALSE"}
+	PLUGIN_GRAPH=${PLUGIN_GRAPH:-"FALSE"}
 	PLUGIN_GREYLIST=${PLUGIN_GREYLIST:-"FALSE"}
 	PLUGIN_HELO_CHECKS=${PLUGIN_HELO_CHECKS:-"TRUE"}
 	PLUGIN_KARMA=${PLUGIN_KARMA:-"FALSE"}
 	PLUGIN_KNOWN_SENDERS=${PLUGIN_KNOWN_SENDERS:-"FALSE"}
 	PLUGIN_LIMIT=${PLUGIN_LIMIT:-"TRUE"}
 	PLUGIN_MAIL_FROM_IS_RESOLVABLE=${PLUGIN_MAIL_FROM_IS_RESOLVABLE:-"TRUE"}
+    PLUGIN_MAX_UNRECOGNIZED_COMMANDS=${PLUGIN_MAX_UNRECOGNIZED_COMMANDS:-:"TRUE"}
 	PLUGIN_P0F=${PLUGIN_P0F:-"FALSE"}
 	PLUGIN_PROCESS_TITLE=${PLUGIN_PROCESS_TITLE:-"TRUE"}
 	PLUGIN_RCPT_TO_LDAP=${PLUGIN_RCPT_TO_LDAP:-"FALSE"}
+	PLUGIN_RELAY=${PLUGIN_RELAY:-"FALSE"}
 	PLUGIN_RSPAMD=${PLUGIN_RSPAMD:-"FALSE"}
 	PLUGIN_SPAMASSASSIN=${PLUGIN_SPAMASSASSIN:-"FALSE"}
 	PLUGIN_SPF=${PLUGIN_SPF:-"FALSE"}
@@ -111,10 +119,10 @@ fi
 #process_title
 #syslog
 
-# CONNECT
+########### CONNECT
 #toobusy
 #relay
-access
+##access
 # connect.p0f
 # geoip
 # asn
@@ -126,24 +134,26 @@ dnsbl
 helo.checks
 #ldap
 #tls
+
+########### AUTH
 #auth/flat_file
 #auth/auth_proxy
 #auth/auth_bridge
 #auth/auth_vpopmail.d
 
-#MAIL FROM
+########### MAIL FROM
 #dkim_verify
 mail_from.is_resolvable
 #spf
 
-# RCPT TO
+########### RCPT TO
 rcpt_to.in_host_list
 #qmail-deliverable
 #rcpt_to.access
 #rcpt_to.maxcount
 #rcpt_to.routes
 
-# DATA
+########### DATA
 #prevent_credential_leaks
 #bounce
 data.headers
@@ -157,7 +167,7 @@ data.headers
 #karma
 #limit
 
-# QUEUE
+########### QUEUE
 #queue/discard
 #queue/lmtp
 #queue/qmail-queue
@@ -189,7 +199,9 @@ EOF
 				    echo $domain >> /data/config/host_list
 				done
 	  ## Set Log Level
-		echo LOG$LOG_LEVEL > /data/config/loglevel 
+		echo LOG$LOG_LEVEL > /data/config/loglevel
+		sed -i -e "/level=/c\level=$LOG_LEVEL" /data/config/log.ini
+
 	  ## Define how long the UUID should be in logging
 		echo $UUID_DENY_NUMBER > /data/config/deny_includes_uuid
 		if [ "$STRICT_RFC1869" = "TRUE" ] || [ "$STRICT_RFC1869" = "true" ];  then
@@ -201,6 +213,10 @@ EOF
 		rm -rf /data/config/log_timestamps
 		if [ "$LOG_TIMESTAMP" = "TRUE" ] || [ "$LOG_TIMESTAMP" = "true" ]; then
 		    echo '1' > /data/config/log_timestamps
+		    sed -i -e "/timestamps=/c\timestamps=true" /data/config/log.ini
+		else 
+			echo '0' > /data/config/log_timestamps
+			sed -i -e "/timestamps=/c\timestamps=false" /data/config/log.ini
 		fi
 	  ## Set Maximuim Message Size
 		echo $MAXIMUM_MESSAGE_SIZE > /data/config/databytes
@@ -214,6 +230,10 @@ EOF
 	    echo $OUTBOUND_CONCURRENCY_MAX > /data/config/outbound.concurrency_max
 	  ## Set Greeting
 	    echo $SMTP_GREETING > /data/config/smtpgreeting
+	  ## Check for Outbound Bounce Message
+      if [ ! -f "/data/config/outbound.bounce_message" ]; then
+      	cp -R /assets/haraka/config/outbound.bounce_message /data/config/outbound.bounce_message
+      fi
 	  ## Set SMTP Options
 	  if [ "$IGNORE_BAD_PLUGINS" = "TRUE" ] || [ "$IGNORE_BAD_PLUGINS" = "true" ]; then
 	  	LOG_TIMESTAMP=1
@@ -223,7 +243,6 @@ EOF
 
     cat <<EOF > /data/config/smtp.ini
 listen=[::0]:25,[::0]:587
-;public_ip=N.N.N.N
 inactivity_timeout=$INACTIVITY_TIMEOUT 
 user=$USER
 group=$GROUP
@@ -237,8 +256,13 @@ spool_after=$SPOOL_AFTER
 force_shutdown_timeout=30
 EOF
 
+if [ -n "$PUBLIC_IP" ]; then
+echo 'public_ip='$PUBLIC_IP >>/data/config/smtp.ini
+fi
+
+
 cat <<EOF > /data/config/redis.ini
-[redis]
+[server]
 host = $REDIS_HOST
 port = $REDIS_PORT
 db = $REDIS_DB
@@ -260,19 +284,6 @@ EOF
  else
  	sed -i -e "/maildir\/maildir/c\#maildir\/maildir" /data/config/plugins
   fi
-  if [ "$ENABLE_LDAP" = "TRUE" ] || [ "$ENABLE_LDAP" = "true" ];  then
-    PLUGIN_AUTH_LDAP=TRUE
-    PLUGIN_RCPT_TO_LDAP=TRUE
-  fi
-
-### LMTP Configuration
-if [ "$ENABLE_LMTP" = "TRUE" ] || [ "$ENABLE_LMTP" = "true" ];  then
-	sed -i -e "/asn/c\asn" /data/config/plugins
-	if [ ! -f /data/config/lmtp.ini ] ; then
-       cp -R /assets/haraka/config/lmtp.ini /data/config/lmtp.ini
-    fi
-      sed -i -e "/queue"
-fi
 
 ### Auth Configuration
     ## Bridge
@@ -343,6 +354,15 @@ fi
 	fi
 
 ### Plugin Configuration
+	 ## Access
+	  if [ "$PLUGIN_ACCESS" = "TRUE" ] || [ "$PLUGIN_ACCESS" = "true" ];  then
+		sed -i -e "/##access/c\access" /data/config/plugins
+		if [ ! -f /data/config/access.ini ] ; then
+		   cp -R /assets/haraka/config/access.* /data/config/
+		fi
+	  else
+	  	sed -i -e "/access/c\##access" /data/config/plugins
+	  fi
 	 ## ASN
 	  if [ "$PLUGIN_ASN" = "TRUE" ] || [ "$PLUGIN_ASN" = "true" ];  then
 		sed -i -e "/asn/c\asn" /data/config/plugins
@@ -410,13 +430,13 @@ fi
 		if [ ! -f /data/config/dkim_sign.ini ] ; then
 		   cp -R /assets/haraka/config/dkim_sign.ini /data/config/dkim_sign.ini
 		fi
-		   chmod +x /data/config/dkim_key_gen.sh
+		   chmod +x /data/config/dkim/dkim_key_gen.sh
 		   cd /data/config/dkim/
 		   dkim_domains=$(echo $DKIM_DOMAINS | tr " " "\n")
 			for dkim_domain in $dkim_domains
 				do
 			        if [ ! -d "/data/config/dkim/$dkim_domain" ]; then
-						./dkim_key_gen.sh $domain        
+						./dkim_key_gen.sh $dkim_domain        
                     fi
 				done
            sed -i -e "/disabled =/c\disabled = false" /data/config/dkim_sign.ini
@@ -426,11 +446,9 @@ fi
 	 ## DKIM Verify
 	  if [ "$PLUGIN_DKIM_VERIFY" = "TRUE" ] || [ "$PLUGIN_DKIM_VERIFY" = "true" ];  then
 		sed -i -e "/dkim_verify/c\dkim_verify" /data/config/plugins
-		
 	  else
 	    sed -i -e "/dkim_verify/c\#dkim_verify" /data/config/plugins
 	  fi
-
 	 ## DNS Blacklist Checks
 	  if [ "$PLUGIN_DNSBL" = "TRUE" ] || [ "$PLUGIN_DNSBL" = "true" ];  then
 		sed -i -e "/dnsbl/c\dnsbl" /data/config/plugins
@@ -440,6 +458,13 @@ fi
 	  else
 	  	sed -i -e "/dnsbl/c\#dnsbl" /data/config/plugins
 	  fi
+	 ## DNS Blacklist Checks
+	  if [ "$PLUGIN_DNSWL" = "TRUE" ] || [ "$PLUGIN_DNSWL" = "true" ];  then
+		sed -i -e "/dnswl/c\dnswl" /data/config/plugins
+	  else
+	  	sed -i -e "/dnswl/c\#dnswl" /data/config/plugins
+	  fi
+
 	 ## Early Talker
 	  if [ "$PLUGIN_EARLY_TALKER" = "TRUE" ] || [ "$PLUGIN_EARLY_TALKER" = "true" ];  then
 		sed -i -e "/early_talker/c\early_talker" /data/config/plugins
@@ -452,8 +477,8 @@ fi
 	 ## Forward Confirmed Reverse DNS
 	  if [ "$PLUGIN_FCRDNS" = "TRUE" ] || [ "$PLUGIN_FCRDNS" = "true" ];  then
 		sed -i -e "/fcrdns/c\fcrdns" /data/config/plugins
-		if [ ! -f /data/config/fcrdns.ini ] ; then
-		   cp -R /assets/haraka/config/fcrdns.ini /data/config/
+		if [ ! -f /data/config/connect.fcrdns.ini ] ; then
+		   cp -R /assets/haraka/config/connect.fcrdns.ini /data/config/
 		fi
 	  else
 	  	sed -i -e "/fcrdns/c\#fcrdns" /data/config/plugins
@@ -540,6 +565,12 @@ fi
 	  else
 	  	sed -i -e "/mail_from.is_resolvable/c\#mail_from.is_resolvable" /data/config/plugins
 	  fi
+     ## Max Unrecognized Commands
+	if [ "$PLUGIN_MAX_UNRECOGNIZED_COMMANDS" = "TRUE" ] || [ "$PLUGIN_MAX_UNRECOGNIZED_COMMANDS" = "true" ];  then
+		sed -i -e "/max_unrecognized_commands/c\max_unrecognized_commands" /data/config/plugins
+	  else
+	  	sed -i -e "/max_unrecognized_commands/c\#max_unrecognized_commands" /data/config/plugins
+	  fi
 	 ## p0f
 	  if [ "$PLUGIN_P0F" = "TRUE" ] || [ "$PLUGIN_P0F" = "true" ];  then
 		sed -i -e "/connect.p0f/c\connect.p0f" /data/config/plugins
@@ -556,7 +587,7 @@ fi
 	  else
 		sed -i -e "/process_title/c\#process_title" /data/config/plugins  	
 	  fi
-	 ## Recient Exists in LDAP
+	 ## Recipient Exists in LDAP
 	  if [ "$PLUGIN_RCPT_TO_LDAP" = "TRUE" ] || [ "$PLUGIN_RCPT_TO_LDAP" = "true" ];  then
 		sed -i -e "/rcpt_to.ldap/c\rcpt_to.ldap" /data/config/plugins
 		if [ ! -f /data/config/rcpt_to.ldap.ini ] ; then
@@ -567,6 +598,16 @@ fi
 	  else
 	  	sed -i -e "/rcpt_to.ldap/c\#rcpt_to.ldap" /data/config/plugins
 	  fi
+ 	 ## Access
+	  if [ "$PLUGIN_RELAY" = "TRUE" ] || [ "$PLUGIN_RELAY" = "true" ];  then
+		sed -i -e "/relay/c\relay" /data/config/plugins
+		if [ ! -f /data/config/relay.ini ] ; then
+		   cp -R /assets/haraka/config/relay.ini /data/config/relay.ini
+		fi
+	  else
+	  	sed -i -e "/relay/c\#relay" /data/config/plugins
+	  fi
+
 	 ## RSpamD
 	  if [ "$PLUGIN_RSPAMD" = "TRUE" ] || [ "$PLUGIN_RSPAMD" = "true" ];  then
 		sed -i -e "/rspamd/c\rspamd" /data/config/plugins
@@ -593,7 +634,7 @@ fi
 		if [ ! -f /data/config/spamassassin.ini ] ; then
 		   cp -R /assets/haraka/config/spamassassin.ini /data/config/spamassasin.ini
 		fi
-	    sed -i -e "/spamd_socket=/c\spamd_socket=$SPAMASSASSIN_HOST" /data/config/spamassassin.ini
+	    sed -i -e "/spamd_socket=/c\spamd_socket=$SPAMASSASSIN_HOST:$SPAMASSASSIN_PORT" /data/config/spamassassin.ini
 	  else
 	  	sed -i -e "/spamassassin/c\#spamassassin" /data/config/plugins
 	  fi
@@ -678,6 +719,18 @@ EOF
 	    echo '0 0 1 * * maxmind-geolite-mirror >/dev/null 2>&1' >>/assets/cron/crontab.txt
 	  fi
 
+	## HTTP Webserver
+	  if [ "$PLUGIN_WATCH" = "TRUE" ] || [ "$PLUGIN_WATCH" = "true" ] || [ "$PLUGIN_GRAPH" = "TRUE" ] || [ "$PLUGIN_GRAPH" = "true" ];  then
+		if [ ! -d "/data/html" ]; then
+      	cp -R /assets/haraka/html /data/
+      	fi
+      	cp -R /assets/haraka/config/http.ini /data/config/http.ini
+      else
+      	rm -rf /data/config/http.ini
+      fi
+
+
+	  fi
 ### Queue Configuration
 	## Discard
 	  if [ "$QUEUE_DISCARD" = "TRUE" ] || [ "$QUEUE_DISCARD" = "true" ];  then
