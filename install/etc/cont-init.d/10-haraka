@@ -242,7 +242,7 @@ EOF
 	  fi
 
     cat <<EOF > /data/config/smtp.ini
-listen=[::0]:25,[::0]:587
+listen=[::0]:25,[::0]:465,[::0]:587
 inactivity_timeout=$INACTIVITY_TIMEOUT 
 user=$USER
 group=$GROUP

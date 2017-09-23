@@ -1,3 +1,7 @@
+## 0.51 2017-09-23 Dave Conroy <dave at tiredofit dot ca>
+
+* Listen on 25, 465, and 587 by default
+
 ## 0.5 2017-09-23 Dave Conroy <dave at tiredofit dot ca>
 
 * Feature Complete
