@@ -9,7 +9,7 @@ fi
 ### Set Defaults
 	MANUAL_CONFIG=${MANUAL_CONFIG:-"FALSE"}
 	ACCEPT_DOMAINS=${ACCEPT_DOMAINS:-"example.com"}
-	CLAMD_HOST=${CLAMD_HOST:-"clamd"}
+	CLAMD_HOST=${CLAMD_HOST:-"clamav"}
 	CLAMD_PORT=${CLAMD_PORT:-"3310"}
 	EARLY_TALKER_DELAY=${EARLY_TALKER_DELAY:-"1000"}
 	ENABLE_VMAIL=${ENABLE_VMAIL:="FALSE"}
@@ -402,7 +402,7 @@ EOF
 		if [ ! -f /data/config/clamd.ini ] ; then
 		   cp -R /assets/haraka/config/clamd.ini /data/config/clamd.ini
 		fi
-	    sed -i -e "/clamd_socket=/c\spamd_socket=$CLAMD_HOST:$CLAMD_PORT" /data/config/clamd.ini
+	    sed -i -e "/clamd_socket=/c\clamd_socket=$CLAMD_HOST:$CLAMD_PORT" /data/config/clamd.ini
 	  else
 	  	sed -i -e "/clamd/c\#clamd" /data/config/plugins
 	  fi
@@ -632,7 +632,7 @@ EOF
 	  if [ "$PLUGIN_SPAMASSASSIN" = "TRUE" ] || [ "$PLUGIN_SPAMASSASSIN" = "true" ];  then
 		sed -i -e "/spamassassin/c\spamassassin" /data/config/plugins
 		if [ ! -f /data/config/spamassassin.ini ] ; then
-		   cp -R /assets/haraka/config/spamassassin.ini /data/config/spamassasin.ini
+		   cp -R /assets/haraka/config/spamassassin.ini /data/config/spamassassin.ini
 		fi
 	    sed -i -e "/spamd_socket=/c\spamd_socket=$SPAMASSASSIN_HOST:$SPAMASSASSIN_PORT" /data/config/spamassassin.ini
 	  else
@@ -722,15 +722,15 @@ EOF
 	## HTTP Webserver
 	  if [ "$PLUGIN_WATCH" = "TRUE" ] || [ "$PLUGIN_WATCH" = "true" ] || [ "$PLUGIN_GRAPH" = "TRUE" ] || [ "$PLUGIN_GRAPH" = "true" ];  then
 		if [ ! -d "/data/html" ]; then
-      	cp -R /assets/haraka/html /data/
+	      	cp -R /assets/haraka/html /data/
       	fi
-      	cp -R /assets/haraka/config/http.ini /data/config/http.ini
+  		cp -R /assets/haraka/config/http.ini /data/config/http.ini
       else
-      	rm -rf /data/config/http.ini
+	  	rm -rf /data/config/http.ini
       fi
 
 
-	  fi
+
 ### Queue Configuration
 	## Discard
 	  if [ "$QUEUE_DISCARD" = "TRUE" ] || [ "$QUEUE_DISCARD" = "true" ];  then
