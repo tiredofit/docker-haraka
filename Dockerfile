@@ -13,7 +13,7 @@ LABEL maintainer="Dave Conroy (dave at tiredofit dot ca)"
 
 
 ### Install Build Dependencies
-        apk update && \
+        apk upgrade && \
         apk add --virtual haraka-build-dependencies \
             gcc \
             g++ \
